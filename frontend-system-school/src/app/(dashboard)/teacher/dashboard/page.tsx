@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Users,
@@ -8,65 +9,59 @@ import {
   Calendar,
   Clock,
   ChevronRight,
-  Star
+  Star,
+  Loader2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { api } from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
 
-const stats = [
-  {
-    title: 'Mis Estudiantes',
-    value: '156',
-    subtitle: 'En 4 cursos',
-    icon: Users,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
-  },
-  {
-    title: 'Clases Hoy',
-    value: '4',
-    subtitle: '2 completadas',
-    icon: BookOpen,
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
-  },
-  {
-    title: 'Tareas Pendientes',
-    value: '23',
-    subtitle: 'Por revisar',
-    icon: ClipboardCheck,
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-500/10',
-  },
-  {
-    title: 'Próximo Evento',
-    value: '2h',
-    subtitle: 'Reunión padres',
-    icon: Calendar,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
-  },
-]
+interface Course {
+  id: string
+  subject: { name: string }
+  classroom: {
+    name: string
+    section: {
+      name: string
+      gradeLevel: { name: string }
+    }
+  }
+  _count?: { enrollments: number }
+}
 
-const todaySchedule = [
-  { time: '08:00', subject: 'Matemáticas', grade: '5to A', status: 'completed', students: 32 },
-  { time: '09:30', subject: 'Matemáticas', grade: '5to B', status: 'completed', students: 28 },
-  { time: '11:00', subject: 'Álgebra', grade: '6to A', status: 'current', students: 30 },
-  { time: '14:00', subject: 'Geometría', grade: '6to B', status: 'upcoming', students: 31 },
-]
+interface Schedule {
+  id: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  course: {
+    subject: { name: string }
+    classroom: {
+      section: {
+        name: string
+        gradeLevel: { name: string }
+      }
+    }
+  }
+}
 
-const pendingTasks = [
-  { id: 1, title: 'Calificar examen parcial - 5to A', deadline: 'Hoy', priority: 'high' },
-  { id: 2, title: 'Subir material de clase - Álgebra', deadline: 'Mañana', priority: 'medium' },
-  { id: 3, title: 'Revisar tareas - 6to B', deadline: 'Esta semana', priority: 'low' },
-]
-
-const topStudents = [
-  { name: 'Laura Méndez', grade: '5to A', average: 98, avatar: 'LM' },
-  { name: 'Carlos Ruiz', grade: '6to A', average: 96, avatar: 'CR' },
-  { name: 'Ana López', grade: '5to B', average: 95, avatar: 'AL' },
-]
+interface Task {
+  id: string
+  title: string
+  dueDate: string
+  course: {
+    subject: { name: string }
+    classroom: {
+      section: {
+        name: string
+        gradeLevel: { name: string }
+      }
+    }
+  }
+  _count: { submissions: number }
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -81,15 +76,105 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
+const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
 export default function TeacherDashboardPage() {
+  const { user } = useAuth()
+  const [courses, setCourses] = useState<Course[]>([])
+  const [schedules, setSchedules] = useState<Schedule[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const [coursesData, schedulesData, tasksData] = await Promise.all([
+        api.get<Course[]>('/courses'),
+        api.get<Schedule[]>('/schedules'),
+        api.get<Task[]>('/tasks')
+      ])
+      setCourses(coursesData)
+      setSchedules(schedulesData)
+      setTasks(tasksData)
+    } catch (err) {
+      console.error('Error fetching data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Obtener el día actual (0-6)
+  const today = new Date().getDay()
+  const todaySchedule = schedules
+    .filter(s => s.dayOfWeek === today)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+  // Calcular estadísticas
+  const totalStudents = courses.reduce((acc, c) => acc + (c._count?.enrollments || 0), 0)
+  const pendingTasks = tasks.filter(t => new Date(t.dueDate) >= new Date())
+
+  const stats = [
+    {
+      title: 'Mis Estudiantes',
+      value: totalStudents.toString(),
+      subtitle: `En ${courses.length} cursos`,
+      icon: Users,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
+    },
+    {
+      title: 'Mis Cursos',
+      value: courses.length.toString(),
+      subtitle: 'Asignados',
+      icon: BookOpen,
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
+    },
+    {
+      title: 'Clases Hoy',
+      value: todaySchedule.length.toString(),
+      subtitle: dayNames[today],
+      icon: Calendar,
+      color: 'text-purple-500',
+      bgColor: 'bg-purple-500/10',
+    },
+    {
+      title: 'Tareas Activas',
+      value: pendingTasks.length.toString(),
+      subtitle: 'Pendientes',
+      icon: ClipboardCheck,
+      color: 'text-orange-500',
+      bgColor: 'bg-orange-500/10',
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Cargando dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold">Buenos días, Profesor</h1>
+          <h1 className="font-heading text-3xl font-bold">
+            Bienvenido, {user?.profile?.firstName || 'Profesor'}
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Tienes 4 clases programadas para hoy.
+            {todaySchedule.length > 0
+              ? `Tienes ${todaySchedule.length} clase(s) programada(s) para hoy.`
+              : 'No tienes clases programadas para hoy.'}
           </p>
         </div>
       </div>
@@ -135,68 +220,86 @@ export default function TeacherDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Horario de Hoy</CardTitle>
-                  <CardDescription>Martes, 10 de Diciembre</CardDescription>
+                  <CardDescription>{dayNames[today]}, {new Date().toLocaleDateString()}</CardDescription>
                 </div>
-                <Button variant="ghost" size="sm">
-                  Ver semana
-                </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {todaySchedule.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1 }}
-                    className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                      item.status === 'current'
-                        ? 'bg-primary/10 border-2 border-primary'
-                        : item.status === 'completed'
-                        ? 'bg-muted/50 opacity-60'
-                        : 'bg-muted/30 hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center justify-center w-16">
-                      <Clock className={`h-4 w-4 mb-1 ${
-                        item.status === 'current' ? 'text-primary' : 'text-muted-foreground'
-                      }`} />
-                      <span className={`text-sm font-bold ${
-                        item.status === 'current' ? 'text-primary' : ''
-                      }`}>
-                        {item.time}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{item.subject}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.grade} • {item.students} estudiantes
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {item.status === 'current' && (
-                        <span className="px-3 py-1 text-xs font-medium bg-primary text-primary-foreground rounded-full">
-                          En curso
-                        </span>
-                      )}
-                      {item.status === 'completed' && (
-                        <span className="px-3 py-1 text-xs font-medium bg-green-500/20 text-green-600 rounded-full">
-                          Completada
-                        </span>
-                      )}
-                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+              {todaySchedule.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No tienes clases programadas para hoy</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {todaySchedule.map((item, index) => {
+                    const now = new Date()
+                    const [startHour, startMin] = item.startTime.split(':').map(Number)
+                    const [endHour, endMin] = item.endTime.split(':').map(Number)
+                    const startTime = new Date()
+                    startTime.setHours(startHour, startMin, 0)
+                    const endTime = new Date()
+                    endTime.setHours(endHour, endMin, 0)
+
+                    let status = 'upcoming'
+                    if (now >= startTime && now <= endTime) status = 'current'
+                    else if (now > endTime) status = 'completed'
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + index * 0.1 }}
+                        className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                          status === 'current'
+                            ? 'bg-primary/10 border-2 border-primary'
+                            : status === 'completed'
+                            ? 'bg-muted/50 opacity-60'
+                            : 'bg-muted/30 hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center justify-center w-16">
+                          <Clock className={`h-4 w-4 mb-1 ${
+                            status === 'current' ? 'text-primary' : 'text-muted-foreground'
+                          }`} />
+                          <span className={`text-sm font-bold ${
+                            status === 'current' ? 'text-primary' : ''
+                          }`}>
+                            {item.startTime}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{item.course.subject.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.course.classroom.section.gradeLevel.name} {item.course.classroom.section.name}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {status === 'current' && (
+                            <span className="px-3 py-1 text-xs font-medium bg-primary text-primary-foreground rounded-full">
+                              En curso
+                            </span>
+                          )}
+                          {status === 'completed' && (
+                            <span className="px-3 py-1 text-xs font-medium bg-green-500/20 text-green-600 rounded-full">
+                              Completada
+                            </span>
+                          )}
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Pending Tasks */}
+          {/* My Courses */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -205,38 +308,43 @@ export default function TeacherDashboardPage() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Tareas Pendientes</CardTitle>
-                  <span className="px-2 py-1 text-xs font-medium bg-orange-500/20 text-orange-600 rounded-full">
-                    {pendingTasks.length}
+                  <CardTitle className="text-lg">Mis Cursos</CardTitle>
+                  <span className="px-2 py-1 text-xs font-medium bg-blue-500/20 text-blue-600 rounded-full">
+                    {courses.length}
                   </span>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {pendingTasks.map((task, index) => (
-                    <motion.div
-                      key={task.id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.6 + index * 0.1 }}
-                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                    >
-                      <div className={`w-2 h-2 mt-2 rounded-full ${
-                        task.priority === 'high' ? 'bg-red-500' :
-                        task.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                      }`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{task.title}</p>
-                        <p className="text-xs text-muted-foreground">{task.deadline}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                {courses.length === 0 ? (
+                  <p className="text-center py-4 text-muted-foreground">No tienes cursos asignados</p>
+                ) : (
+                  <div className="space-y-3">
+                    {courses.slice(0, 5).map((course, index) => (
+                      <motion.div
+                        key={course.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.6 + index * 0.1 }}
+                        className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="p-2 rounded-lg bg-primary/10">
+                          <BookOpen className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{course.subject.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {course.classroom.section.gradeLevel.name} {course.classroom.section.name}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Top Students */}
+          {/* Pending Tasks */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -245,33 +353,38 @@ export default function TeacherDashboardPage() {
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Mejores Estudiantes</CardTitle>
-                  <Star className="h-5 w-5 text-yellow-500" />
+                  <CardTitle className="text-lg">Tareas Recientes</CardTitle>
+                  <span className="px-2 py-1 text-xs font-medium bg-orange-500/20 text-orange-600 rounded-full">
+                    {tasks.length}
+                  </span>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {topStudents.map((student, index) => (
-                    <motion.div
-                      key={student.name}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.7 + index * 0.1 }}
-                      className="flex items-center gap-3"
-                    >
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                          {student.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{student.name}</p>
-                        <p className="text-xs text-muted-foreground">{student.grade}</p>
-                      </div>
-                      <span className="text-sm font-bold text-primary">{student.average}%</span>
-                    </motion.div>
-                  ))}
-                </div>
+                {tasks.length === 0 ? (
+                  <p className="text-center py-4 text-muted-foreground">No hay tareas creadas</p>
+                ) : (
+                  <div className="space-y-3">
+                    {tasks.slice(0, 4).map((task, index) => (
+                      <motion.div
+                        key={task.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.7 + index * 0.1 }}
+                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className={`w-2 h-2 mt-2 rounded-full ${
+                          new Date(task.dueDate) < new Date() ? 'bg-red-500' : 'bg-green-500'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {task.course.subject.name} - {new Date(task.dueDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

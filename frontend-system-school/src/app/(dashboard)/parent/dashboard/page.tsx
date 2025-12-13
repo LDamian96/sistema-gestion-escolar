@@ -1,93 +1,74 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Users,
   BookOpen,
   Calendar,
   CreditCard,
-  Bell,
   TrendingUp,
-  FileText,
   MessageSquare,
-  ChevronRight,
-  CheckCircle2,
+  Loader2,
+  GraduationCap,
   AlertCircle
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { api } from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
+import Link from 'next/link'
 
-const children = [
-  {
-    id: 1,
-    name: 'María García',
-    grade: '5to Grado',
-    avatar: 'MG',
-    average: 92,
-    attendance: 98,
-    pendingPayment: false,
-  },
-  {
-    id: 2,
-    name: 'José García',
-    grade: '3er Grado',
-    avatar: 'JG',
-    average: 88,
-    attendance: 95,
-    pendingPayment: true,
-  },
-]
+interface Student {
+  id: string
+  firstName: string
+  lastName: string
+  enrollmentCode: string
+  enrollments: Array<{
+    classroom: {
+      section: {
+        name: string
+        gradeLevel: { name: string }
+      }
+    }
+  }>
+}
 
-const stats = [
-  {
-    title: 'Hijos Registrados',
-    value: '2',
-    icon: Users,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
-  },
-  {
-    title: 'Promedio General',
-    value: '90%',
-    icon: TrendingUp,
-    color: 'text-green-500',
-    bgColor: 'bg-green-500/10',
-  },
-  {
-    title: 'Eventos del Mes',
-    value: '4',
-    icon: Calendar,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500/10',
-  },
-  {
-    title: 'Pagos Pendientes',
-    value: '1',
-    icon: CreditCard,
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-500/10',
-  },
-]
+interface ParentData {
+  id: string
+  firstName: string
+  lastName: string
+  students: Student[]
+}
 
-const recentGrades = [
-  { child: 'María', subject: 'Matemáticas', grade: 95, date: 'Hoy' },
-  { child: 'José', subject: 'Español', grade: 85, date: 'Ayer' },
-  { child: 'María', subject: 'Ciencias', grade: 92, date: 'Hace 2 días' },
-  { child: 'José', subject: 'Historia', grade: 88, date: 'Hace 3 días' },
-]
+interface Grade {
+  id: string
+  score: number
+  course: {
+    subject: { name: string }
+  }
+  student: {
+    firstName: string
+    lastName: string
+  }
+  period: {
+    name: string
+  }
+  createdAt: string
+}
 
-const upcomingEvents = [
-  { title: 'Reunión de Padres - 5to', date: '15 Dic', time: '10:00 AM', child: 'María' },
-  { title: 'Presentación Navidad', date: '20 Dic', time: '06:00 PM', child: 'Ambos' },
-  { title: 'Entrega de Boletines', date: '22 Dic', time: '09:00 AM', child: 'Ambos' },
-]
-
-const notifications = [
-  { id: 1, message: 'Nueva calificación registrada para María', time: 'Hace 1 hora', read: false },
-  { id: 2, message: 'Recordatorio: Pago de mensualidad pendiente', time: 'Hace 3 horas', read: false },
-  { id: 3, message: 'José ha sido premiado por su participación', time: 'Ayer', read: true },
-]
+interface Payment {
+  id: string
+  amount: number
+  description: string
+  status: string
+  dueDate: string
+  student: {
+    firstName: string
+    lastName: string
+  }
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -103,25 +84,99 @@ const itemVariants = {
 }
 
 export default function ParentDashboardPage() {
+  const { user } = useAuth()
+  const [parentData, setParentData] = useState<ParentData | null>(null)
+  const [grades, setGrades] = useState<Grade[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const [parentsData, gradesData, paymentsData] = await Promise.all([
+        api.get<ParentData[]>('/parents'),
+        api.get<Grade[]>('/grades'),
+        api.get<Payment[]>('/payments')
+      ])
+
+      // El padre logueado debería obtener solo su información
+      if (parentsData.length > 0) {
+        setParentData(parentsData[0])
+      }
+      setGrades(gradesData)
+      setPayments(paymentsData)
+    } catch (err) {
+      console.error('Error fetching data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+  }
+
+  const pendingPayments = payments.filter(p => p.status === 'PENDING' || p.status === 'OVERDUE')
+  const childrenCount = parentData?.students?.length || 0
+
+  const stats = [
+    {
+      title: 'Hijos Registrados',
+      value: childrenCount.toString(),
+      icon: Users,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
+    },
+    {
+      title: 'Calificaciones',
+      value: grades.length.toString(),
+      icon: GraduationCap,
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
+    },
+    {
+      title: 'Pagos Pendientes',
+      value: pendingPayments.length.toString(),
+      icon: CreditCard,
+      color: pendingPayments.length > 0 ? 'text-orange-500' : 'text-green-500',
+      bgColor: pendingPayments.length > 0 ? 'bg-orange-500/10' : 'bg-green-500/10',
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Cargando información...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold">Portal de Padres</h1>
+          <h1 className="font-heading text-3xl font-bold">
+            Bienvenido, {user?.profile?.firstName || 'Padre'}
+          </h1>
           <p className="text-muted-foreground mt-1">
             Seguimiento académico de sus hijos
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Contactar Profesor
-          </Button>
-          <Button>
-            <CreditCard className="h-4 w-4 mr-2" />
-            Realizar Pago
-          </Button>
+          <Link href="/parent/calificaciones">
+            <Button variant="outline">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Ver Calificaciones
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -130,7 +185,7 @@ export default function ParentDashboardPage() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-6"
       >
         {stats.map((stat) => (
           <motion.div key={stat.title} variants={itemVariants}>
@@ -152,203 +207,216 @@ export default function ParentDashboardPage() {
       </motion.div>
 
       {/* Children Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <h2 className="font-heading text-xl font-semibold mb-4">Mis Hijos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {children.map((child, index) => (
-            <motion.div
-              key={child.id}
-              initial={{ opacity: 0, x: index === 0 ? -20 : 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 + index * 0.1 }}
-            >
-              <Card className="hover:shadow-lg transition-all hover:border-primary/50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-16 w-16">
-                      <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                        {child.avatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold text-lg">{child.name}</h3>
-                          <p className="text-sm text-muted-foreground">{child.grade}</p>
+      {parentData?.students && parentData.students.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <h2 className="font-heading text-xl font-semibold mb-4">Mis Hijos</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {parentData.students.map((child, index) => {
+              const childGrades = grades.filter(g =>
+                g.student.firstName === child.firstName && g.student.lastName === child.lastName
+              )
+              const averageGrade = childGrades.length > 0
+                ? childGrades.reduce((acc, g) => acc + g.score, 0) / childGrades.length
+                : 0
+              const childPayments = payments.filter(p =>
+                p.student.firstName === child.firstName && p.student.lastName === child.lastName
+              )
+              const hasPendingPayment = childPayments.some(p => p.status === 'PENDING' || p.status === 'OVERDUE')
+
+              return (
+                <motion.div
+                  key={child.id}
+                  initial={{ opacity: 0, x: index === 0 ? -20 : 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 + index * 0.1 }}
+                >
+                  <Card className="hover:shadow-lg transition-all hover:border-primary/50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-4">
+                        <Avatar className="h-16 w-16">
+                          <AvatarFallback className="bg-primary/10 text-primary text-xl">
+                            {getInitials(child.firstName, child.lastName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-semibold text-lg">{child.firstName} {child.lastName}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {child.enrollments?.[0]?.classroom?.section?.gradeLevel?.name || 'Sin grado'}{' '}
+                                {child.enrollments?.[0]?.classroom?.section?.name || ''}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Código: {child.enrollmentCode}</p>
+                            </div>
+                            {hasPendingPayment && (
+                              <span className="px-2 py-1 text-xs font-medium bg-orange-500/20 text-orange-600 rounded-full flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" />
+                                Pago pendiente
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-4">
+                            <div className="p-3 rounded-lg bg-muted/50">
+                              <p className="text-xs text-muted-foreground">Promedio</p>
+                              <p className={`text-xl font-bold ${
+                                averageGrade >= 16 ? 'text-green-500' :
+                                averageGrade >= 11 ? 'text-yellow-500' : 'text-red-500'
+                              }`}>
+                                {averageGrade > 0 ? averageGrade.toFixed(1) : '-'}
+                              </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-muted/50">
+                              <p className="text-xs text-muted-foreground">Calificaciones</p>
+                              <p className="text-xl font-bold text-blue-500">{childGrades.length}</p>
+                            </div>
+                          </div>
                         </div>
-                        {child.pendingPayment && (
-                          <span className="px-2 py-1 text-xs font-medium bg-orange-500/20 text-orange-600 rounded-full flex items-center gap-1">
-                            <AlertCircle className="h-3 w-3" />
-                            Pago pendiente
-                          </span>
-                        )}
                       </div>
-                      <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Promedio</p>
-                          <p className="text-xl font-bold text-green-500">{child.average}%</p>
-                        </div>
-                        <div className="p-3 rounded-lg bg-muted/50">
-                          <p className="text-xs text-muted-foreground">Asistencia</p>
-                          <p className="text-xl font-bold text-blue-500">{child.attendance}%</p>
-                        </div>
+                      <div className="flex gap-2 mt-4">
+                        <Link href="/parent/calificaciones" className="flex-1">
+                          <Button variant="outline" size="sm" className="w-full">
+                            <BookOpen className="h-4 w-4 mr-2" />
+                            Ver Notas
+                          </Button>
+                        </Link>
+                        <Link href="/parent/asistencia" className="flex-1">
+                          <Button variant="outline" size="sm" className="w-full">
+                            <Calendar className="h-4 w-4 mr-2" />
+                            Asistencia
+                          </Button>
+                        </Link>
                       </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <BookOpen className="h-4 w-4 mr-2" />
-                      Ver Calificaciones
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Ver Horario
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Grades */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="lg:col-span-2"
         >
           <Card className="h-full">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Calificaciones Recientes</CardTitle>
-                  <CardDescription>Últimas evaluaciones de sus hijos</CardDescription>
+                  <CardDescription>Últimas evaluaciones registradas</CardDescription>
                 </div>
-                <Button variant="ghost" size="sm">
-                  Ver todas
-                </Button>
+                <Link href="/parent/calificaciones">
+                  <Button variant="ghost" size="sm">
+                    Ver todas
+                  </Button>
+                </Link>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {recentGrades.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.6 + index * 0.1 }}
-                    className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
-                      item.grade >= 90 ? 'bg-green-500/20 text-green-600' :
-                      item.grade >= 80 ? 'bg-blue-500/20 text-blue-600' :
-                      item.grade >= 70 ? 'bg-yellow-500/20 text-yellow-600' : 'bg-red-500/20 text-red-600'
-                    }`}>
-                      {item.grade}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{item.subject}</p>
-                      <p className="text-sm text-muted-foreground">{item.child}</p>
-                    </div>
-                    <span className="text-sm text-muted-foreground">{item.date}</span>
-                  </motion.div>
-                ))}
-              </div>
+              {grades.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <GraduationCap className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No hay calificaciones registradas</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {grades.slice(0, 5).map((grade, index) => (
+                    <motion.div
+                      key={grade.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.6 + index * 0.1 }}
+                      className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${
+                        grade.score >= 16 ? 'bg-green-500/20 text-green-600' :
+                        grade.score >= 11 ? 'bg-yellow-500/20 text-yellow-600' : 'bg-red-500/20 text-red-600'
+                      }`}>
+                        {grade.score.toFixed(0)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">{grade.course.subject.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {grade.student.firstName} - {grade.period.name}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Upcoming Events */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-          >
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Próximos Eventos</CardTitle>
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
+        {/* Payments */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <Card className="h-full">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Estado de Pagos</CardTitle>
+                  <CardDescription>Pagos registrados</CardDescription>
                 </div>
-              </CardHeader>
-              <CardContent>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {payments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No hay pagos registrados</p>
+                </div>
+              ) : (
                 <div className="space-y-3">
-                  {upcomingEvents.map((event, index) => (
+                  {payments.slice(0, 5).map((payment, index) => (
                     <motion.div
-                      key={index}
+                      key={payment.id}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.7 + index * 0.1 }}
-                      className="flex items-center gap-3 p-3 rounded-lg border hover:border-primary/50 transition-colors cursor-pointer"
+                      className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
                     >
-                      <div className="flex flex-col items-center justify-center w-12 h-12 rounded-lg bg-primary/10 text-primary">
-                        <span className="text-xs">{event.date.split(' ')[1]}</span>
-                        <span className="text-lg font-bold">{event.date.split(' ')[0]}</span>
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        payment.status === 'PAID' ? 'bg-green-500/20' :
+                        payment.status === 'PENDING' ? 'bg-yellow-500/20' : 'bg-red-500/20'
+                      }`}>
+                        <CreditCard className={`h-5 w-5 ${
+                          payment.status === 'PAID' ? 'text-green-600' :
+                          payment.status === 'PENDING' ? 'text-yellow-600' : 'text-red-600'
+                        }`} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{event.title}</p>
-                        <p className="text-xs text-muted-foreground">{event.time} • {event.child}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Notifications */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-          >
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Notificaciones</CardTitle>
-                  <span className="px-2 py-1 text-xs font-medium bg-red-500/20 text-red-600 rounded-full">
-                    {notifications.filter(n => !n.read).length} nuevas
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {notifications.map((notif, index) => (
-                    <motion.div
-                      key={notif.id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.8 + index * 0.1 }}
-                      className={`flex items-start gap-3 p-3 rounded-lg transition-colors cursor-pointer ${
-                        notif.read ? 'bg-muted/30' : 'bg-primary/5 hover:bg-primary/10'
-                      }`}
-                    >
-                      <div className={`mt-1 w-2 h-2 rounded-full ${
-                        notif.read ? 'bg-muted-foreground' : 'bg-primary'
-                      }`} />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${notif.read ? 'text-muted-foreground' : 'font-medium'}`}>
-                          {notif.message}
+                      <div className="flex-1">
+                        <p className="font-medium">{payment.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {payment.student.firstName} - S/. {payment.amount.toFixed(2)}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">{notif.time}</p>
                       </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        payment.status === 'PAID' ? 'bg-green-500/20 text-green-600' :
+                        payment.status === 'PENDING' ? 'bg-yellow-500/20 text-yellow-600' : 'bg-red-500/20 text-red-600'
+                      }`}>
+                        {payment.status === 'PAID' ? 'Pagado' :
+                         payment.status === 'PENDING' ? 'Pendiente' : 'Vencido'}
+                      </span>
                     </motion.div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     </div>
   )

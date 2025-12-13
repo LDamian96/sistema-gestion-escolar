@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   BookOpen,
@@ -10,62 +10,67 @@ import {
   FileText,
   ChevronRight,
   CheckCircle2,
-  Circle
+  Circle,
+  Loader2,
+  GraduationCap
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { api } from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
 
-const courses = [
-  { id: 'all', name: 'Todos' },
-  { id: 'mat', name: 'Matemáticas' },
-  { id: 'esp', name: 'Español' },
-  { id: 'cie', name: 'Ciencias' },
-  { id: 'his', name: 'Historia' },
-  { id: 'ing', name: 'Inglés' },
-]
-
-const attendanceByCourse: Record<string, number> = {
-  all: 98,
-  mat: 100,
-  esp: 95,
-  cie: 100,
-  his: 90,
-  ing: 98,
+interface Schedule {
+  id: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  course: {
+    subject: { name: string }
+    teacher: { firstName: string; lastName: string }
+    classroom: {
+      name: string
+      section: {
+        name: string
+        gradeLevel: { name: string }
+      }
+    }
+  }
 }
 
-const stats = [
-  {
-    title: 'Tareas Pendientes',
-    value: '5',
-    subtitle: 'Esta semana',
-    icon: ClipboardCheck,
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-500/10',
-  },
-  {
-    title: 'Materias Inscritas',
-    value: '6',
-    subtitle: 'Este período',
-    icon: BookOpen,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-500/10',
-  },
-]
+interface Task {
+  id: string
+  title: string
+  description: string
+  type: string
+  dueDate: string
+  course: {
+    subject: { name: string }
+  }
+}
 
-const todayClasses = [
-  { time: '08:00', subject: 'Matemáticas', teacher: 'Prof. García', room: 'Aula 201', status: 'completed' },
-  { time: '09:30', subject: 'Español', teacher: 'Prof. López', room: 'Aula 203', status: 'completed' },
-  { time: '11:00', subject: 'Ciencias', teacher: 'Prof. Martínez', room: 'Lab 1', status: 'current' },
-  { time: '14:00', subject: 'Historia', teacher: 'Prof. Rodríguez', room: 'Aula 205', status: 'upcoming' },
-  { time: '15:30', subject: 'Inglés', teacher: 'Prof. Smith', room: 'Aula 102', status: 'upcoming' },
-]
+interface Grade {
+  id: string
+  score: number
+  course: {
+    subject: { name: string }
+  }
+  period: {
+    name: string
+  }
+}
 
-const pendingAssignments = [
-  { id: 1, title: 'Ejercicios de Álgebra Cap. 5', subject: 'Matemáticas', deadline: 'Hoy 11:59 PM', progress: 60 },
-  { id: 2, title: 'Ensayo sobre la Revolución', subject: 'Historia', deadline: 'Mañana', progress: 30 },
-  { id: 3, title: 'Reporte de Laboratorio', subject: 'Ciencias', deadline: 'Vie 13 Dic', progress: 0 },
-]
+interface Enrollment {
+  id: string
+  status: string
+  classroom: {
+    name: string
+    section: {
+      name: string
+      gradeLevel: { name: string }
+    }
+  }
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -80,18 +85,100 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
 }
 
+const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
 export default function StudentDashboardPage() {
-  const [attendanceCourse, setAttendanceCourse] = useState('all')
-  const attendanceValue = attendanceByCourse[attendanceCourse] || 98
+  const { user } = useAuth()
+  const [schedules, setSchedules] = useState<Schedule[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [grades, setGrades] = useState<Grade[]>([])
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      const [schedulesData, tasksData, gradesData, enrollmentsData] = await Promise.all([
+        api.get<Schedule[]>('/schedules'),
+        api.get<Task[]>('/tasks'),
+        api.get<Grade[]>('/grades'),
+        api.get<Enrollment[]>('/enrollments')
+      ])
+      setSchedules(schedulesData)
+      setTasks(tasksData)
+      setGrades(gradesData)
+      setEnrollments(enrollmentsData)
+    } catch (err) {
+      console.error('Error fetching data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const today = new Date().getDay()
+  const todaySchedule = schedules
+    .filter(s => s.dayOfWeek === today)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+  const pendingTasks = tasks.filter(t => new Date(t.dueDate) >= new Date())
+  const averageGrade = grades.length > 0
+    ? grades.reduce((acc, g) => acc + g.score, 0) / grades.length
+    : 0
+
+  const stats = [
+    {
+      title: 'Tareas Pendientes',
+      value: pendingTasks.length.toString(),
+      subtitle: 'Por entregar',
+      icon: ClipboardCheck,
+      color: 'text-orange-500',
+      bgColor: 'bg-orange-500/10',
+    },
+    {
+      title: 'Clases Hoy',
+      value: todaySchedule.length.toString(),
+      subtitle: dayNames[today],
+      icon: BookOpen,
+      color: 'text-blue-500',
+      bgColor: 'bg-blue-500/10',
+    },
+    {
+      title: 'Promedio General',
+      value: averageGrade.toFixed(1),
+      subtitle: 'Este período',
+      icon: GraduationCap,
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Cargando dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold">¡Hola, Estudiante!</h1>
+          <h1 className="font-heading text-3xl font-bold">
+            Hola, {user?.profile?.firstName || 'Estudiante'}
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Tienes 5 clases hoy. ¡Sigue así!
+            {todaySchedule.length > 0
+              ? `Tienes ${todaySchedule.length} clase(s) hoy. ¡Éxito!`
+              : 'No tienes clases programadas para hoy.'}
           </p>
         </div>
         <div className="flex gap-3">
@@ -109,7 +196,7 @@ export default function StudentDashboardPage() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-6"
       >
         {stats.map((stat) => (
           <motion.div key={stat.title} variants={itemVariants}>
@@ -129,38 +216,6 @@ export default function StudentDashboardPage() {
             </Card>
           </motion.div>
         ))}
-
-        {/* Attendance Card with Filter */}
-        <motion.div variants={itemVariants}>
-          <Card className="hover:shadow-lg transition-shadow duration-300">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between">
-                <div className="p-3 rounded-xl bg-green-500/10">
-                  <Calendar className="h-6 w-6 text-green-500" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <p className="text-3xl font-bold">{attendanceValue}%</p>
-                <p className="text-sm font-medium mt-1">Asistencia</p>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {courses.map((course) => (
-                    <button
-                      key={course.id}
-                      onClick={() => setAttendanceCourse(course.id)}
-                      className={`px-2 py-0.5 text-xs rounded-full transition-colors ${
-                        attendanceCourse === course.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      {course.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
       </motion.div>
 
       {/* Main Content Grid */}
@@ -177,7 +232,7 @@ export default function StudentDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Mi Horario de Hoy</CardTitle>
-                  <CardDescription>Martes, 10 de Diciembre</CardDescription>
+                  <CardDescription>{dayNames[today]}, {new Date().toLocaleDateString()}</CardDescription>
                 </div>
                 <Link href="/student/horario">
                   <Button variant="ghost" size="sm">
@@ -187,53 +242,74 @@ export default function StudentDashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {todayClasses.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1 }}
-                    className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                      item.status === 'current'
-                        ? 'bg-primary/10 border-2 border-primary'
-                        : item.status === 'completed'
-                        ? 'bg-muted/50 opacity-60'
-                        : 'bg-muted/30 hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center justify-center w-16">
-                      <Clock className={`h-4 w-4 mb-1 ${
-                        item.status === 'current' ? 'text-primary' : 'text-muted-foreground'
-                      }`} />
-                      <span className={`text-sm font-bold ${
-                        item.status === 'current' ? 'text-primary' : ''
-                      }`}>
-                        {item.time}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{item.subject}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.teacher} • {item.room}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {item.status === 'current' && (
-                        <span className="px-3 py-1 text-xs font-medium bg-primary text-primary-foreground rounded-full animate-pulse">
-                          Ahora
-                        </span>
-                      )}
-                      {item.status === 'completed' && (
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                      )}
-                      {item.status === 'upcoming' && (
-                        <Circle className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+              {todaySchedule.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No tienes clases programadas para hoy</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {todaySchedule.map((item, index) => {
+                    const now = new Date()
+                    const [startHour, startMin] = item.startTime.split(':').map(Number)
+                    const [endHour, endMin] = item.endTime.split(':').map(Number)
+                    const startTime = new Date()
+                    startTime.setHours(startHour, startMin, 0)
+                    const endTime = new Date()
+                    endTime.setHours(endHour, endMin, 0)
+
+                    let status = 'upcoming'
+                    if (now >= startTime && now <= endTime) status = 'current'
+                    else if (now > endTime) status = 'completed'
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + index * 0.1 }}
+                        className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                          status === 'current'
+                            ? 'bg-primary/10 border-2 border-primary'
+                            : status === 'completed'
+                            ? 'bg-muted/50 opacity-60'
+                            : 'bg-muted/30 hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center justify-center w-16">
+                          <Clock className={`h-4 w-4 mb-1 ${
+                            status === 'current' ? 'text-primary' : 'text-muted-foreground'
+                          }`} />
+                          <span className={`text-sm font-bold ${
+                            status === 'current' ? 'text-primary' : ''
+                          }`}>
+                            {item.startTime}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{item.course.subject.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Prof. {item.course.teacher.firstName} {item.course.teacher.lastName} - {item.course.classroom.name}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {status === 'current' && (
+                            <span className="px-3 py-1 text-xs font-medium bg-primary text-primary-foreground rounded-full animate-pulse">
+                              Ahora
+                            </span>
+                          )}
+                          {status === 'completed' && (
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          )}
+                          {status === 'upcoming' && (
+                            <Circle className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -249,46 +325,56 @@ export default function StudentDashboardPage() {
               <div className="flex items-center justify-between">
                 <CardTitle>Tareas Pendientes</CardTitle>
                 <span className="px-2 py-1 text-xs font-medium bg-orange-500/20 text-orange-600 rounded-full">
-                  {pendingAssignments.length}
+                  {pendingTasks.length}
                 </span>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {pendingAssignments.map((task, index) => (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.6 + index * 0.1 }}
-                    className="p-4 rounded-xl border hover:border-primary/50 hover:bg-muted/30 transition-all cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{task.title}</p>
-                        <p className="text-xs text-muted-foreground">{task.subject}</p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className={`${
-                        task.deadline.includes('Hoy') ? 'text-red-500 font-medium' : 'text-muted-foreground'
-                      }`}>
-                        {task.deadline}
-                      </span>
-                      <span className="text-muted-foreground">{task.progress}% completado</span>
-                    </div>
-                    <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+              {pendingTasks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle2 className="h-12 w-12 mx-auto mb-4 opacity-50 text-green-500" />
+                  <p>No tienes tareas pendientes</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pendingTasks.slice(0, 4).map((task, index) => {
+                    const dueDate = new Date(task.dueDate)
+                    const isToday = dueDate.toDateString() === new Date().toDateString()
+                    const isOverdue = dueDate < new Date()
+
+                    return (
                       <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${task.progress}%` }}
-                        transition={{ delay: 0.8 + index * 0.1, duration: 0.5 }}
-                        className="h-full bg-primary rounded-full"
-                      />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                        key={task.id}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.6 + index * 0.1 }}
+                        className="p-4 rounded-xl border hover:border-primary/50 hover:bg-muted/30 transition-all cursor-pointer"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{task.title}</p>
+                            <p className="text-xs text-muted-foreground">{task.course.subject.name}</p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className={`${
+                            isOverdue ? 'text-red-500 font-medium' :
+                            isToday ? 'text-orange-500 font-medium' : 'text-muted-foreground'
+                          }`}>
+                            {isOverdue ? 'Vencida' : isToday ? 'Hoy' : dueDate.toLocaleDateString()}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full ${
+                            task.type === 'EXAM' ? 'bg-red-500/20 text-red-600' : 'bg-blue-500/20 text-blue-600'
+                          }`}>
+                            {task.type === 'EXAM' ? 'Examen' : 'Tarea'}
+                          </span>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                </div>
+              )}
               <div className="mt-4">
                 <Link href="/student/tareas">
                   <Button variant="outline" className="w-full">
@@ -300,6 +386,41 @@ export default function StudentDashboardPage() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Grades Summary */}
+      {grades.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle>Mis Notas Recientes</CardTitle>
+              <CardDescription>Últimas calificaciones registradas</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {grades.slice(0, 4).map((grade, index) => (
+                  <div
+                    key={grade.id}
+                    className="p-4 rounded-xl bg-muted/50 text-center"
+                  >
+                    <p className={`text-2xl font-bold ${
+                      grade.score >= 16 ? 'text-green-500' :
+                      grade.score >= 11 ? 'text-yellow-500' : 'text-red-500'
+                    }`}>
+                      {grade.score.toFixed(1)}
+                    </p>
+                    <p className="text-sm font-medium mt-1">{grade.course.subject.name}</p>
+                    <p className="text-xs text-muted-foreground">{grade.period.name}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
     </div>
   )
 }
