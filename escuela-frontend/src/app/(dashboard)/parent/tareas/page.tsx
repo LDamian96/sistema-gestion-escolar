@@ -40,7 +40,7 @@ export default function ParentTareasPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [selectedChildIndex, setSelectedChildIndex] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'closed'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'closed' | 'not_submitted'>('all')
   const [viewModal, setViewModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
 
@@ -85,7 +85,9 @@ export default function ParentTareasPage() {
         }
         return true
       })
-      .filter(t => statusFilter === 'all' || t.status === statusFilter)
+      // 'not_submitted' filtra tareas cerradas (cuando se cierra, los que no entregaron pasan a no_entrego)
+      .filter(t => statusFilter === 'all' ||
+        (statusFilter === 'not_submitted' ? t.status === 'closed' : t.status === statusFilter))
       .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
   }, [selectedChild, tasks, searchTerm, statusFilter])
 
@@ -161,6 +163,7 @@ export default function ParentTareasPage() {
                 { value: 'all', label: 'Todas' },
                 { value: 'pending', label: 'Pendientes' },
                 { value: 'closed', label: 'Cerradas' },
+                { value: 'not_submitted', label: 'No Entregó' },
               ].map((filter) => (
                 <Button
                   key={filter.value}

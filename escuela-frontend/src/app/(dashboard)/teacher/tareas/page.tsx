@@ -80,7 +80,7 @@ export default function TeacherTareasPage() {
   const [selectedLevel, setSelectedLevel] = useState<'Primaria' | 'Secundaria' | ''>('')
   const [filterLevel, setFilterLevel] = useState<'all' | 'Primaria' | 'Secundaria'>('all')
   const [filterGradeSection, setFilterGradeSection] = useState<string>('all')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'closed'>('all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'closed' | 'not_submitted'>('all')
   const [loading, setLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -170,7 +170,9 @@ export default function TeacherTareasPage() {
       }
 
       const matchesGradeSection = filterGradeSection === 'all' || task.gradeSection === filterGradeSection
-      const matchesStatus = filterStatus === 'all' || task.status === filterStatus
+      // 'not_submitted' filtra tareas cerradas (cuando se cierra, los que no entregaron pasan a no_entrego)
+      const matchesStatus = filterStatus === 'all' ||
+        (filterStatus === 'not_submitted' ? task.status === 'closed' : task.status === filterStatus)
 
       return matchesSearch && matchesLevel && matchesGradeSection && matchesStatus
     })
@@ -613,14 +615,14 @@ export default function TeacherTareasPage() {
                   <span className="text-sm font-medium">Estado:</span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {(['all', 'pending', 'closed'] as const).map((status) => (
+                  {(['all', 'pending', 'closed', 'not_submitted'] as const).map((status) => (
                     <Button
                       key={status}
                       variant={filterStatus === status ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setFilterStatus(status)}
                     >
-                      {status === 'all' ? 'Todas' : getStatusText(status)}
+                      {status === 'all' ? 'Todas' : status === 'not_submitted' ? 'No Entregó' : getStatusText(status)}
                     </Button>
                   ))}
                 </div>

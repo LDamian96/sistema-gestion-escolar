@@ -71,7 +71,7 @@ export default function TareasPage() {
   const [selectedLevel, setSelectedLevel] = useState<'all' | 'Inicial' | 'Primaria' | 'Secundaria'>('all')
   const [selectedTurno, setSelectedTurno] = useState<string>('all')
   const [selectedGradeSection, setSelectedGradeSection] = useState<string>('all')
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'closed'>('all')
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'closed' | 'not_submitted'>('all')
   const [modalMode, setModalMode] = useState<ModalMode>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -167,7 +167,9 @@ export default function TareasPage() {
       }
 
       const matchesGradeSection = selectedGradeSection === 'all' || task.gradeSection === selectedGradeSection
-      const matchesStatus = selectedStatus === 'all' || task.status === selectedStatus
+      // 'not_submitted' filtra tareas cerradas (cuando se cierra, los que no entregaron pasan a no_entrego)
+      const matchesStatus = selectedStatus === 'all' ||
+        (selectedStatus === 'not_submitted' ? task.status === 'closed' : task.status === selectedStatus)
       return matchesSearch && matchesLevel && matchesTurno && matchesGradeSection && matchesStatus
     })
   }, [tasks, searchTerm, selectedLevel, selectedTurno, selectedGradeSection, selectedStatus, gradeSections])
@@ -645,14 +647,14 @@ export default function TareasPage() {
                     <span className="text-sm font-medium">Estado:</span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {(['all', 'pending', 'closed'] as const).map((status) => (
+                    {(['all', 'pending', 'closed', 'not_submitted'] as const).map((status) => (
                       <Button
                         key={status}
                         variant={selectedStatus === status ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => setSelectedStatus(status)}
                       >
-                        {status === 'all' ? 'Todas' : getStatusText(status)}
+                        {status === 'all' ? 'Todas' : status === 'not_submitted' ? 'No Entregó' : getStatusText(status)}
                       </Button>
                     ))}
                   </div>

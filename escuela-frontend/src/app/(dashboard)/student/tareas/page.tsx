@@ -39,7 +39,7 @@ interface StudentTask extends Task {
   submissionNotes?: string
   grade?: number
   feedback?: string
-  studentStatus: 'pending' | 'submitted' | 'graded' | 'overdue'
+  studentStatus: 'pending' | 'submitted' | 'graded' | 'not_submitted'
 }
 
 const studentTaskData: Record<string, Partial<StudentTask>> = {
@@ -48,7 +48,7 @@ const studentTaskData: Record<string, Partial<StudentTask>> = {
   'task3': { studentStatus: 'submitted', submittedAt: '2024-12-13', submissionFile: 'informe_laboratorio.pdf', submissionNotes: 'Adjunto el informe completo del experimento' },
   'task4': { studentStatus: 'graded', submittedAt: '2024-12-12', submissionFile: 'vocabulario.pdf', grade: 18, feedback: 'Excelente trabajo. Muy completo.' },
   'task5': { studentStatus: 'pending' },
-  'task6': { studentStatus: 'overdue' }
+  'task6': { studentStatus: 'not_submitted' }
 }
 
 const CURRENT_STUDENT_ID = 's1'
@@ -88,17 +88,17 @@ export default function StudentTareasPage() {
           .filter(task => task.gradeSection === student.gradeSection)
           .map(task => {
             const studentData = studentTaskData[task.id] || { studentStatus: 'pending' }
-            const today = new Date().toISOString().split('T')[0]
 
             let status = studentData.studentStatus || 'pending'
-            if (status === 'pending' && task.dueDate < today) {
-              status = 'overdue'
+            // Si la tarea está cerrada y el estudiante no entregó (no tiene calificación), marcar como no_entrego
+            if (task.status === 'closed' && status === 'pending') {
+              status = 'not_submitted'
             }
 
             return {
               ...task,
               ...studentData,
-              studentStatus: status as 'pending' | 'submitted' | 'graded' | 'overdue'
+              studentStatus: status as 'pending' | 'submitted' | 'graded' | 'not_submitted'
             }
           })
 
@@ -119,7 +119,9 @@ export default function StudentTareasPage() {
     let result = tasks
 
     if (selectedStatus === 'pending') {
-      result = result.filter(task => task.studentStatus === 'pending' || task.studentStatus === 'overdue')
+      result = result.filter(task => task.studentStatus === 'pending')
+    } else if (selectedStatus === 'not_submitted') {
+      result = result.filter(task => task.studentStatus === 'not_submitted')
     } else if (selectedStatus !== 'all') {
       result = result.filter(task => task.studentStatus === selectedStatus)
     }
@@ -150,10 +152,10 @@ export default function StudentTareasPage() {
   const subjects = useMemo(() => Object.keys(tasksBySubject).sort(), [tasksBySubject])
 
   const stats = useMemo(() => ({
-    pending: tasks.filter(t => t.studentStatus === 'pending' || t.studentStatus === 'overdue').length,
+    pending: tasks.filter(t => t.studentStatus === 'pending').length,
     submitted: tasks.filter(t => t.studentStatus === 'submitted').length,
     graded: tasks.filter(t => t.studentStatus === 'graded').length,
-    overdue: tasks.filter(t => t.studentStatus === 'overdue').length,
+    not_submitted: tasks.filter(t => t.studentStatus === 'not_submitted').length,
     total: tasks.length
   }), [tasks])
 
@@ -169,7 +171,7 @@ export default function StudentTareasPage() {
       case 'pending': return 'bg-amber-500'
       case 'submitted': return 'bg-blue-500'
       case 'graded': return 'bg-emerald-500'
-      case 'overdue': return 'bg-rose-500'
+      case 'not_submitted': return 'bg-rose-500'
       default: return 'bg-gray-500'
     }
   }
@@ -179,7 +181,7 @@ export default function StudentTareasPage() {
       case 'pending': return 'Pendiente'
       case 'submitted': return 'Entregada'
       case 'graded': return 'Calificada'
-      case 'overdue': return 'No Entregó'
+      case 'not_submitted': return 'No Entregó'
       default: return status
     }
   }
@@ -298,6 +300,7 @@ export default function StudentTareasPage() {
           { label: 'Pendientes', value: stats.pending, icon: Clock, bg: 'bg-amber-50 dark:bg-amber-950/30', iconBg: 'bg-amber-500', filter: 'pending' },
           { label: 'Entregadas', value: stats.submitted, icon: Upload, bg: 'bg-blue-50 dark:bg-blue-950/30', iconBg: 'bg-blue-500', filter: 'submitted' },
           { label: 'Calificadas', value: stats.graded, icon: CheckCircle, bg: 'bg-emerald-50 dark:bg-emerald-950/30', iconBg: 'bg-emerald-500', filter: 'graded' },
+          { label: 'No Entregó', value: stats.not_submitted, icon: AlertCircle, bg: 'bg-rose-50 dark:bg-rose-950/30', iconBg: 'bg-rose-500', filter: 'not_submitted' },
           { label: 'Total', value: stats.total, icon: FileText, bg: 'bg-purple-50 dark:bg-purple-950/30', iconBg: 'bg-purple-500', filter: 'all' },
         ].map((stat, index) => (
           <motion.div
@@ -350,6 +353,7 @@ export default function StudentTareasPage() {
                 { value: 'pending', label: 'Pendientes' },
                 { value: 'submitted', label: 'Entregadas' },
                 { value: 'graded', label: 'Calificadas' },
+                { value: 'not_submitted', label: 'No Entregó' },
               ].map((filter) => (
                 <Button
                   key={filter.value}
@@ -436,14 +440,14 @@ export default function StudentTareasPage() {
                       </div>
                     </CardTitle>
                     <Badge className="bg-white/20 text-white border-0">
-                      {tasksBySubject[subject].filter(t => t.studentStatus === 'pending' || t.studentStatus === 'overdue').length} pendientes
+                      {tasksBySubject[subject].filter(t => t.studentStatus === 'pending' || t.studentStatus === 'not_submitted').length} pendientes
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y">
                     {tasksBySubject[subject].map((task, index) => {
-                      const isPastDue = task.studentStatus === 'overdue'
+                      const isPastDue = task.studentStatus === 'not_submitted'
 
                       return (
                         <motion.div
@@ -501,7 +505,7 @@ export default function StudentTareasPage() {
                                 <Eye className="h-4 w-4" />
                                 Ver
                               </Button>
-                              {(task.studentStatus === 'pending' || task.studentStatus === 'overdue') && (
+                              {task.studentStatus === 'pending' && (
                                 <Button size="sm" onClick={() => handleOpenSubmitModal(task)} className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700">
                                   <Upload className="h-4 w-4" />
                                   Entregar
