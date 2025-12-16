@@ -436,6 +436,9 @@ export interface Exam {
   teacherId: string
   teacherName: string
   examDate: string
+  startTime: string
+  endTime: string
+  type: 'partial' | 'final' | 'quiz'
   maxScore: number
   status: 'scheduled' | 'completed' | 'graded'
   averageScore?: number
@@ -443,22 +446,22 @@ export interface Exam {
 
 let mockExams: Exam[] = [
   // Exámenes de Primaria - 5to A
-  { id: 'exam1', title: 'Examen de Matemáticas', description: 'Evaluación de fracciones y decimales', courseId: 'c1', courseName: 'Matemáticas', gradeSection: '5to A', level: 'Primaria', teacherId: 't1', teacherName: 'Carlos López', examDate: '2024-12-16', maxScore: 20, status: 'scheduled' },
-  { id: 'exam2', title: 'Examen de Comunicación', description: 'Comprensión lectora', courseId: 'c2', courseName: 'Comunicación', gradeSection: '5to A', level: 'Primaria', teacherId: 't2', teacherName: 'Ana Rodríguez', examDate: '2024-12-14', maxScore: 20, status: 'completed', averageScore: 15.5 },
-  { id: 'exam3', title: 'Examen de Ciencias', description: 'Evaluación integral del bimestre', courseId: 'c4', courseName: 'Ciencias Naturales', gradeSection: '5to A', level: 'Primaria', teacherId: 't3', teacherName: 'Diego Flores', examDate: '2024-12-20', maxScore: 20, status: 'scheduled' },
-  { id: 'exam4', title: 'Examen de Inglés', description: 'Vocabulary and grammar', courseId: 'c5', courseName: 'Inglés', gradeSection: '5to A', level: 'Primaria', teacherId: 't5', teacherName: 'Miguel Ángel', examDate: '2024-12-10', maxScore: 20, status: 'graded', averageScore: 14.8 },
+  { id: 'exam1', title: 'Examen de Matemáticas', description: 'Evaluación de fracciones y decimales', courseId: 'c1', courseName: 'Matemáticas', gradeSection: '5to A', level: 'Primaria', teacherId: 't1', teacherName: 'Carlos López', examDate: '2024-12-16', startTime: '08:00', endTime: '09:30', type: 'partial', maxScore: 20, status: 'scheduled' },
+  { id: 'exam2', title: 'Examen de Comunicación', description: 'Comprensión lectora', courseId: 'c2', courseName: 'Comunicación', gradeSection: '5to A', level: 'Primaria', teacherId: 't2', teacherName: 'Ana Rodríguez', examDate: '2024-12-14', startTime: '08:00', endTime: '09:30', type: 'partial', maxScore: 20, status: 'completed', averageScore: 15.5 },
+  { id: 'exam3', title: 'Examen de Ciencias', description: 'Evaluación integral del bimestre', courseId: 'c4', courseName: 'Ciencias Naturales', gradeSection: '5to A', level: 'Primaria', teacherId: 't3', teacherName: 'Diego Flores', examDate: '2024-12-20', startTime: '10:00', endTime: '11:30', type: 'final', maxScore: 20, status: 'scheduled' },
+  { id: 'exam4', title: 'Examen de Inglés', description: 'Vocabulary and grammar', courseId: 'c5', courseName: 'Inglés', gradeSection: '5to A', level: 'Primaria', teacherId: 't5', teacherName: 'Miguel Ángel', examDate: '2024-12-10', startTime: '14:00', endTime: '15:30', type: 'quiz', maxScore: 20, status: 'graded', averageScore: 14.8 },
   // Exámenes de Primaria - 5to B
-  { id: 'exam5', title: 'Examen de Matemáticas', description: 'Geometría y medidas', courseId: 'c3', courseName: 'Matemáticas', gradeSection: '5to B', level: 'Primaria', teacherId: 't1', teacherName: 'Carlos López', examDate: '2024-12-17', maxScore: 20, status: 'scheduled' },
-  { id: 'exam6', title: 'Examen de Música', description: 'Teoría musical básica', courseId: 'c8', courseName: 'Música', gradeSection: '5to B', level: 'Primaria', teacherId: 't6', teacherName: 'Patricia Vargas', examDate: '2024-12-19', maxScore: 20, status: 'scheduled' },
+  { id: 'exam5', title: 'Examen de Matemáticas', description: 'Geometría y medidas', courseId: 'c3', courseName: 'Matemáticas', gradeSection: '5to B', level: 'Primaria', teacherId: 't1', teacherName: 'Carlos López', examDate: '2024-12-17', startTime: '10:00', endTime: '11:30', type: 'partial', maxScore: 20, status: 'scheduled' },
+  { id: 'exam6', title: 'Examen de Música', description: 'Teoría musical básica', courseId: 'c8', courseName: 'Música', gradeSection: '5to B', level: 'Primaria', teacherId: 't6', teacherName: 'Patricia Vargas', examDate: '2024-12-19', startTime: '14:00', endTime: '16:00', type: 'quiz', maxScore: 20, status: 'scheduled' },
   // Exámenes de Primaria - 6to A
-  { id: 'exam7', title: 'Examen de Matemáticas', description: 'Álgebra y funciones', courseId: 'c1', courseName: 'Matemáticas', gradeSection: '6to A', level: 'Primaria', teacherId: 't1', teacherName: 'Carlos López', examDate: '2024-12-18', maxScore: 20, status: 'scheduled' },
-  { id: 'exam8', title: 'Examen de Historia', description: 'Historia del Perú', courseId: 'c6', courseName: 'Historia', gradeSection: '6to A', level: 'Primaria', teacherId: 't4', teacherName: 'Rosa Torres', examDate: '2024-12-05', maxScore: 20, status: 'graded', averageScore: 16.2 },
+  { id: 'exam7', title: 'Examen de Matemáticas', description: 'Álgebra y funciones', courseId: 'c1', courseName: 'Matemáticas', gradeSection: '6to A', level: 'Primaria', teacherId: 't1', teacherName: 'Carlos López', examDate: '2024-12-18', startTime: '08:00', endTime: '09:30', type: 'partial', maxScore: 20, status: 'scheduled' },
+  { id: 'exam8', title: 'Examen de Historia', description: 'Historia del Perú', courseId: 'c6', courseName: 'Historia', gradeSection: '6to A', level: 'Primaria', teacherId: 't4', teacherName: 'Rosa Torres', examDate: '2024-12-05', startTime: '08:00', endTime: '11:00', type: 'final', maxScore: 20, status: 'graded', averageScore: 16.2 },
   // Exámenes de Secundaria - 1ro A
-  { id: 'exam9', title: 'Examen de Comunicación', description: 'Análisis literario', courseId: 'c2', courseName: 'Comunicación', gradeSection: '1ro A', level: 'Secundaria', teacherId: 't2', teacherName: 'Ana Rodríguez', examDate: '2024-12-21', maxScore: 20, status: 'scheduled' },
-  { id: 'exam10', title: 'Examen de Ciencias', description: 'Química básica', courseId: 'c4', courseName: 'Ciencias Naturales', gradeSection: '1ro A', level: 'Secundaria', teacherId: 't3', teacherName: 'Diego Flores', examDate: '2024-12-22', maxScore: 20, status: 'scheduled' },
+  { id: 'exam9', title: 'Examen de Comunicación', description: 'Análisis literario', courseId: 'c2', courseName: 'Comunicación', gradeSection: '1ro A', level: 'Secundaria', teacherId: 't2', teacherName: 'Ana Rodríguez', examDate: '2024-12-21', startTime: '07:00', endTime: '08:30', type: 'partial', maxScore: 20, status: 'scheduled' },
+  { id: 'exam10', title: 'Examen de Ciencias', description: 'Química básica', courseId: 'c4', courseName: 'Ciencias Naturales', gradeSection: '1ro A', level: 'Secundaria', teacherId: 't3', teacherName: 'Diego Flores', examDate: '2024-12-22', startTime: '09:00', endTime: '10:30', type: 'final', maxScore: 20, status: 'scheduled' },
   // Exámenes de Secundaria - 1ro B
-  { id: 'exam11', title: 'Examen de Inglés', description: 'Reading comprehension', courseId: 'c5', courseName: 'Inglés', gradeSection: '1ro B', level: 'Secundaria', teacherId: 't5', teacherName: 'Miguel Ángel', examDate: '2024-12-23', maxScore: 20, status: 'scheduled' },
-  { id: 'exam12', title: 'Examen de Ed. Física', description: 'Prueba física integral', courseId: 'c7', courseName: 'Educación Física', gradeSection: '1ro B', level: 'Secundaria', teacherId: 't7', teacherName: 'Roberto Mendoza', examDate: '2024-12-12', maxScore: 20, status: 'graded', averageScore: 17.5 },
+  { id: 'exam11', title: 'Examen de Inglés', description: 'Reading comprehension', courseId: 'c5', courseName: 'Inglés', gradeSection: '1ro B', level: 'Secundaria', teacherId: 't5', teacherName: 'Miguel Ángel', examDate: '2024-12-23', startTime: '09:00', endTime: '10:30', type: 'quiz', maxScore: 20, status: 'scheduled' },
+  { id: 'exam12', title: 'Examen de Ed. Física', description: 'Prueba física integral', courseId: 'c7', courseName: 'Educación Física', gradeSection: '1ro B', level: 'Secundaria', teacherId: 't7', teacherName: 'Roberto Mendoza', examDate: '2024-12-12', startTime: '14:00', endTime: '16:00', type: 'partial', maxScore: 20, status: 'graded', averageScore: 17.5 },
 ]
 
 // ==================== PAGOS ====================

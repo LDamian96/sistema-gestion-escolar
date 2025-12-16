@@ -56,6 +56,9 @@ type ExamFormData = {
   description: string
   courseId: string
   examDate: string
+  startTime: string
+  endTime: string
+  type: 'partial' | 'final' | 'quiz'
   maxScore: number
 }
 
@@ -93,6 +96,9 @@ export default function TeacherExamenesPage() {
     description: '',
     courseId: '',
     examDate: '',
+    startTime: '08:00',
+    endTime: '09:30',
+    type: 'partial',
     maxScore: 20
   })
   const [submitting, setSubmitting] = useState(false)
@@ -249,6 +255,9 @@ export default function TeacherExamenesPage() {
       description: '',
       courseId: '',
       examDate: '',
+      startTime: '08:00',
+      endTime: '09:30',
+      type: 'partial',
       maxScore: 20
     })
     setIsCreateModalOpen(true)
@@ -266,6 +275,9 @@ export default function TeacherExamenesPage() {
       description: exam.description,
       courseId: exam.courseId,
       examDate: exam.examDate,
+      startTime: exam.startTime,
+      endTime: exam.endTime,
+      type: exam.type,
       maxScore: exam.maxScore
     })
     setIsEditModalOpen(true)
@@ -874,6 +886,39 @@ export default function TeacherExamenesPage() {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="startTime">Hora Inicio</Label>
+                  <Input
+                    id="startTime"
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="endTime">Hora Fin</Label>
+                  <Input
+                    id="endTime"
+                    type="time"
+                    value={formData.endTime}
+                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="type">Tipo de Examen</Label>
+                  <select
+                    id="type"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'partial' | 'final' | 'quiz' })}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  >
+                    <option value="partial">Parcial</option>
+                    <option value="final">Final</option>
+                    <option value="quiz">Práctica</option>
+                  </select>
+                </div>
+                <div>
                   <Label htmlFor="maxScore">Puntaje Máximo</Label>
                   <Input
                     id="maxScore"
@@ -977,6 +1022,39 @@ export default function TeacherExamenesPage() {
                     onChange={(e) => setFormData({ ...formData, examDate: e.target.value })}
                     required
                   />
+                </div>
+                <div>
+                  <Label htmlFor="edit-startTime">Hora Inicio</Label>
+                  <Input
+                    id="edit-startTime"
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-endTime">Hora Fin</Label>
+                  <Input
+                    id="edit-endTime"
+                    type="time"
+                    value={formData.endTime}
+                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-type">Tipo de Examen</Label>
+                  <select
+                    id="edit-type"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'partial' | 'final' | 'quiz' })}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  >
+                    <option value="partial">Parcial</option>
+                    <option value="final">Final</option>
+                    <option value="quiz">Práctica</option>
+                  </select>
                 </div>
                 <div>
                   <Label htmlFor="edit-maxScore">Puntaje Máximo</Label>
