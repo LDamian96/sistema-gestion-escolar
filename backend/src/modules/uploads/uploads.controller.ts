@@ -8,13 +8,15 @@ import {
   Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { diskStorage, Multer } from 'multer';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { UploadsService } from './uploads.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Request } from 'express';
+
+type MulterFile = Multer['File'];
 
 @ApiTags('Uploads')
 @Controller('uploads')
@@ -54,7 +56,7 @@ export class UploadsController {
       },
     }),
   )
-  uploadImage(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+  uploadImage(@UploadedFile() file: MulterFile, @Req() req: Request) {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }
@@ -104,7 +106,7 @@ export class UploadsController {
       },
     }),
   )
-  uploadDocument(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+  uploadDocument(@UploadedFile() file: MulterFile, @Req() req: Request) {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }
@@ -154,7 +156,7 @@ export class UploadsController {
       },
     }),
   )
-  uploadFile(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+  uploadFile(@UploadedFile() file: MulterFile, @Req() req: Request) {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }

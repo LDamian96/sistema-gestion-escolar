@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { GraduationCap, Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
-import { ApiError } from '@/lib/api'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -25,10 +24,10 @@ export default function LoginPage() {
     try {
       await login(email, password)
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof Error) {
         setError(err.message)
       } else {
-        setError('Error al conectar con el servidor')
+        setError('Error al iniciar sesion')
       }
     }
   }

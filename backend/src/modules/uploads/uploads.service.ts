@@ -1,6 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { Multer } from 'multer';
+
+type MulterFile = Multer['File'];
 
 @Injectable()
 export class UploadsService {
@@ -35,7 +38,7 @@ export class UploadsService {
   /**
    * Valida imagen
    */
-  validateImage(file: Express.Multer.File): void {
+  validateImage(file: MulterFile): void {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }
@@ -57,7 +60,7 @@ export class UploadsService {
   /**
    * Valida documento
    */
-  validateDocument(file: Express.Multer.File): void {
+  validateDocument(file: MulterFile): void {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }
@@ -79,7 +82,7 @@ export class UploadsService {
   /**
    * Valida cualquier tipo de archivo
    */
-  validateFile(file: Express.Multer.File): void {
+  validateFile(file: MulterFile): void {
     if (!file) {
       throw new BadRequestException('No se proporcionó ningún archivo');
     }

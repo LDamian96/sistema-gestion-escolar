@@ -23,7 +23,7 @@ export class StudentsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createStudentDto: CreateStudentDto, schoolId: string) {
-    const { email, password, enrollmentCode, ...studentData } = createStudentDto;
+    const { email, password, enrollmentCode, classroomId, ...studentData } = createStudentDto;
 
     // Verificar si el email ya existe
     const existingUser = await this.prisma.user.findUnique({
@@ -47,7 +47,7 @@ export class StudentsService {
     const bcryptRounds = parseInt(process.env.BCRYPT_ROUNDS || '12', 10);
     const hashedPassword = await bcrypt.hash(password, bcryptRounds);
 
-    // Crear usuario y estudiante en una transacción
+    // Crear usuario, estudiante y matrícula en una transacción
     const student = await this.prisma.$transaction(async (tx) => {
       // Crear usuario
       const user = await tx.user.create({
@@ -60,7 +60,7 @@ export class StudentsService {
       });
 
       // Crear perfil de estudiante
-      return tx.student.create({
+      const newStudent = await tx.student.create({
         data: {
           userId: user.id,
           schoolId,
@@ -68,6 +68,24 @@ export class StudentsService {
           ...studentData,
           dateOfBirth: new Date(studentData.dateOfBirth),
         },
+      });
+
+      // Si se proporcionó classroomId, crear matrícula automáticamente
+      if (classroomId) {
+        // Crear la matrícula (enrollment)
+        await tx.enrollment.create({
+          data: {
+            studentId: newStudent.id,
+            classroomId,
+            enrollDate: new Date(),
+            status: 'ACTIVE',
+          },
+        });
+      }
+
+      // Retornar estudiante con información completa
+      return tx.student.findUnique({
+        where: { id: newStudent.id },
         include: {
           user: {
             select: {
@@ -75,6 +93,19 @@ export class StudentsService {
               email: true,
               role: true,
               isActive: true,
+            },
+          },
+          enrollments: {
+            include: {
+              classroom: {
+                include: {
+                  section: {
+                    include: {
+                      gradeLevel: { include: { level: true } },
+                    },
+                  },
+                },
+              },
             },
           },
         },

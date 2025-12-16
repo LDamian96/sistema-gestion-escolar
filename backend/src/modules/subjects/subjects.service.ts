@@ -33,15 +33,75 @@ export class SubjectsService {
       }
     }
 
-    return this.prisma.subject.create({
-      data,
-      include: {
-        gradeLevel: {
-          include: {
-            level: true,
+    // Crear materia y cursos automáticamente en una transacción
+    return this.prisma.$transaction(async (tx) => {
+      // Crear la materia
+      const subject = await tx.subject.create({
+        data,
+        include: {
+          gradeLevel: {
+            include: {
+              level: true,
+            },
           },
         },
-      },
+      });
+
+      // Buscar todas las secciones del mismo gradeLevel
+      const sections = await tx.section.findMany({
+        where: { gradeLevelId: data.gradeLevelId },
+        include: {
+          classrooms: true,
+        },
+      });
+
+      // Obtener o crear el año académico activo
+      const gradeLevel = await tx.gradeLevel.findUnique({
+        where: { id: data.gradeLevelId },
+        include: { level: { include: { school: true } } },
+      });
+
+      if (gradeLevel?.level?.school) {
+        const schoolId = gradeLevel.level.school.id;
+
+        let academicYear = await tx.academicYear.findFirst({
+          where: { schoolId, isCurrent: true },
+        });
+
+        if (!academicYear) {
+          const currentYear = new Date().getFullYear();
+          academicYear = await tx.academicYear.create({
+            data: {
+              schoolId,
+              name: `${currentYear}`,
+              startDate: new Date(`${currentYear}-03-01`),
+              endDate: new Date(`${currentYear}-12-20`),
+              isCurrent: true,
+            },
+          });
+        }
+
+        // Crear un curso para cada classroom de cada sección
+        const coursesToCreate = [];
+        for (const section of sections) {
+          for (const classroom of section.classrooms) {
+            coursesToCreate.push({
+              subjectId: subject.id,
+              classroomId: classroom.id,
+              academicYearId: academicYear.id,
+              // teacherId es opcional, se asignará después
+            });
+          }
+        }
+
+        if (coursesToCreate.length > 0) {
+          await tx.course.createMany({
+            data: coursesToCreate,
+          });
+        }
+      }
+
+      return subject;
     });
   }
 

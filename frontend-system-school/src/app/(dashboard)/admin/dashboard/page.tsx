@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
@@ -13,71 +12,93 @@ import {
   Clock,
   CheckCircle2,
   ArrowUpRight,
-  ArrowDownRight,
-  Loader2,
   DollarSign
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { api } from '@/lib/api'
+import { stats as mockStats, students, teachers, courses, tasks } from '@/lib/mock-data'
 
-// Interfaces para la respuesta del API
-interface DashboardAnalytics {
-  totals: {
-    students: number
-    teachers: number
-    parents: number
-    courses: number
-    pendingPayments: number
-  }
-  demographics: {
-    studentsByGender: Array<{ gender: string; count: number }>
-  }
-  recent: {
-    enrollments: Array<{
-      id: string
-      enrollmentDate: string
-      student: {
-        firstName: string
-        lastName: string
-      }
-    }>
-  }
-}
-
-interface StatItem {
-  title: string
-  value: string
-  change: string
-  trend: 'up' | 'down'
-  icon: typeof Users
-  color: string
-  bgColor: string
-}
-
-// Datos por defecto para eventos (estos podrían venir de otra API)
+// Eventos proximos (estaticos)
 const upcomingEvents = [
   {
     id: 1,
-    title: 'Reunión de Padres',
+    title: 'Reunion de Padres',
     date: '15 Dic',
     time: '10:00 AM',
     type: 'meeting',
   },
   {
     id: 2,
-    title: 'Exámenes Finales',
+    title: 'Examenes Finales',
     date: '18 Dic',
     time: '08:00 AM',
     type: 'exam',
   },
   {
     id: 3,
-    title: 'Festival Navideño',
+    title: 'Festival Navideno',
     date: '22 Dic',
     time: '06:00 PM',
     type: 'event',
+  },
+]
+
+// Actividades recientes (ultimos estudiantes)
+const recentActivities = students.slice(0, 5).map((student, idx) => ({
+  id: student.id,
+  user: `${student.firstName} ${student.lastName}`,
+  action: 'se matriculo en el sistema',
+  time: `Hace ${idx + 1} dia${idx > 0 ? 's' : ''}`,
+  avatar: `${student.firstName[0]}${student.lastName[0]}`,
+}))
+
+// Estadisticas de genero
+const maleCount = students.filter(s => s.gender === 'MALE').length
+const femaleCount = students.filter(s => s.gender === 'FEMALE').length
+const genderStats = {
+  male: maleCount,
+  female: femaleCount,
+  total: maleCount + femaleCount
+}
+
+// Stats para las tarjetas
+const statsData = [
+  {
+    title: 'Total Estudiantes',
+    value: mockStats.totalStudents.toLocaleString(),
+    change: '+12%',
+    trend: 'up' as const,
+    icon: Users,
+    color: 'text-blue-500',
+    bgColor: 'bg-blue-500/10',
+  },
+  {
+    title: 'Profesores Activos',
+    value: mockStats.totalTeachers.toLocaleString(),
+    change: '+5%',
+    trend: 'up' as const,
+    icon: GraduationCap,
+    color: 'text-green-500',
+    bgColor: 'bg-green-500/10',
+  },
+  {
+    title: 'Cursos Activos',
+    value: mockStats.totalCourses.toLocaleString(),
+    change: '+8%',
+    trend: 'up' as const,
+    icon: BookOpen,
+    color: 'text-purple-500',
+    bgColor: 'bg-purple-500/10',
+  },
+  {
+    title: 'Tareas Pendientes',
+    value: mockStats.totalTasks.toLocaleString(),
+    change: '+3%',
+    trend: 'up' as const,
+    icon: DollarSign,
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-500/10',
   },
 ]
 
@@ -102,140 +123,15 @@ const itemVariants = {
 
 export default function AdminDashboardPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState<StatItem[]>([])
-  const [genderStats, setGenderStats] = useState({ male: 0, female: 0, total: 0 })
-  const [recentActivities, setRecentActivities] = useState<Array<{
-    id: string
-    user: string
-    action: string
-    time: string
-    avatar: string
-  }>>([])
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true)
-        const data = await api.get<DashboardAnalytics>('/analytics/dashboard')
-
-        // Construir stats desde los totales
-        const newStats: StatItem[] = [
-          {
-            title: 'Total Estudiantes',
-            value: data.totals.students.toLocaleString(),
-            change: '+0%',
-            trend: 'up',
-            icon: Users,
-            color: 'text-blue-500',
-            bgColor: 'bg-blue-500/10',
-          },
-          {
-            title: 'Profesores Activos',
-            value: data.totals.teachers.toLocaleString(),
-            change: '+0%',
-            trend: 'up',
-            icon: GraduationCap,
-            color: 'text-green-500',
-            bgColor: 'bg-green-500/10',
-          },
-          {
-            title: 'Cursos Activos',
-            value: data.totals.courses.toLocaleString(),
-            change: '+0%',
-            trend: 'up',
-            icon: BookOpen,
-            color: 'text-purple-500',
-            bgColor: 'bg-purple-500/10',
-          },
-          {
-            title: 'Pagos Pendientes',
-            value: data.totals.pendingPayments.toLocaleString(),
-            change: data.totals.pendingPayments > 0 ? '-' : '+0%',
-            trend: data.totals.pendingPayments > 0 ? 'down' : 'up',
-            icon: DollarSign,
-            color: 'text-orange-500',
-            bgColor: 'bg-orange-500/10',
-          },
-        ]
-        setStats(newStats)
-
-        // Procesar estadísticas de género
-        const maleCount = data.demographics.studentsByGender.find(g => g.gender === 'MALE')?.count || 0
-        const femaleCount = data.demographics.studentsByGender.find(g => g.gender === 'FEMALE')?.count || 0
-        setGenderStats({
-          male: maleCount,
-          female: femaleCount,
-          total: maleCount + femaleCount
-        })
-
-        // Procesar matrículas recientes como actividades
-        const activities = data.recent.enrollments.map((enrollment) => ({
-          id: enrollment.id,
-          user: `${enrollment.student.firstName} ${enrollment.student.lastName}`,
-          action: 'se matriculó en el sistema',
-          time: formatTimeAgo(new Date(enrollment.enrollmentDate)),
-          avatar: `${enrollment.student.firstName[0]}${enrollment.student.lastName[0]}`,
-        }))
-        setRecentActivities(activities)
-
-        setError(null)
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err)
-        setError('Error al cargar los datos del dashboard')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchDashboardData()
-  }, [])
-
-  // Función para formatear tiempo relativo
-  const formatTimeAgo = (date: Date): string => {
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
-
-    if (diffMins < 1) return 'Hace un momento'
-    if (diffMins < 60) return `Hace ${diffMins} min`
-    if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`
-    return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Cargando dashboard...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <p className="text-destructive mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>Reintentar</Button>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold">Panel de Administración</h1>
+          <h1 className="font-heading text-3xl font-bold">Panel de Administracion</h1>
           <p className="text-muted-foreground mt-1">
-            Bienvenido de vuelta. Aquí está el resumen de hoy.
+            Bienvenido de vuelta. Aqui esta el resumen de hoy.
           </p>
         </div>
         <div className="flex gap-3">
@@ -257,7 +153,7 @@ export default function AdminDashboardPage() {
         animate="visible"
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
       >
-        {stats.map((stat) => (
+        {statsData.map((stat) => (
           <motion.div key={stat.title} variants={itemVariants}>
             <Card className="hover:shadow-lg transition-shadow duration-300">
               <CardContent className="pt-6">
@@ -265,15 +161,9 @@ export default function AdminDashboardPage() {
                   <div className={`p-3 rounded-xl ${stat.bgColor}`}>
                     <stat.icon className={`h-6 w-6 ${stat.color}`} />
                   </div>
-                  <div className={`flex items-center gap-1 text-sm ${
-                    stat.trend === 'up' ? 'text-green-500' : 'text-red-500'
-                  }`}>
+                  <div className="flex items-center gap-1 text-sm text-green-500">
                     {stat.change}
-                    {stat.trend === 'up' ? (
-                      <ArrowUpRight className="h-4 w-4" />
-                    ) : (
-                      <ArrowDownRight className="h-4 w-4" />
-                    )}
+                    <ArrowUpRight className="h-4 w-4" />
                   </div>
                 </div>
                 <div className="mt-4">
@@ -294,8 +184,8 @@ export default function AdminDashboardPage() {
       >
         <Card>
           <CardHeader>
-            <CardTitle>Distribución por Género</CardTitle>
-            <CardDescription>Estadísticas de estudiantes por sexo</CardDescription>
+            <CardTitle>Distribucion por Genero</CardTitle>
+            <CardDescription>Estadisticas de estudiantes por sexo</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -365,7 +255,7 @@ export default function AdminDashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Actividad Reciente</CardTitle>
-                  <CardDescription>Últimas acciones en el sistema</CardDescription>
+                  <CardDescription>Ultimas acciones en el sistema</CardDescription>
                 </div>
                 <Button variant="ghost" size="sm">
                   Ver todo
@@ -374,37 +264,31 @@ export default function AdminDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentActivities.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No hay actividades recientes
-                  </p>
-                ) : (
-                  recentActivities.map((activity, idx) => (
-                    <motion.div
-                      key={activity.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.5 + idx * 0.1 }}
-                      className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                          {activity.avatar}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm">
-                          <span className="font-medium">{activity.user}</span>{' '}
-                          <span className="text-muted-foreground">{activity.action}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                          <Clock className="h-3 w-3" />
-                          {activity.time}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))
-                )}
+                {recentActivities.map((activity, idx) => (
+                  <motion.div
+                    key={activity.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + idx * 0.1 }}
+                    className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                        {activity.avatar}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">
+                        <span className="font-medium">{activity.user}</span>{' '}
+                        <span className="text-muted-foreground">{activity.action}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <Clock className="h-3 w-3" />
+                        {activity.time}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -420,7 +304,7 @@ export default function AdminDashboardPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Próximos Eventos</CardTitle>
+                  <CardTitle>Proximos Eventos</CardTitle>
                   <CardDescription>Esta semana</CardDescription>
                 </div>
                 <Button variant="ghost" size="sm">
@@ -463,8 +347,8 @@ export default function AdminDashboardPage() {
       >
         <Card>
           <CardHeader>
-            <CardTitle>Acciones Rápidas</CardTitle>
-            <CardDescription>Tareas comunes de administración</CardDescription>
+            <CardTitle>Acciones Rapidas</CardTitle>
+            <CardDescription>Tareas comunes de administracion</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -472,7 +356,7 @@ export default function AdminDashboardPage() {
                 { label: 'Agregar Estudiante', icon: Users, color: 'bg-blue-500', href: '/admin/usuarios' },
                 { label: 'Nuevo Profesor', icon: GraduationCap, color: 'bg-green-500', href: '/admin/usuarios' },
                 { label: 'Crear Curso', icon: BookOpen, color: 'bg-purple-500', href: '/admin/cursos' },
-                { label: 'Ver Matrículas', icon: Calendar, color: 'bg-orange-500', href: '/admin/matriculas' },
+                { label: 'Ver Matriculas', icon: Calendar, color: 'bg-orange-500', href: '/admin/matriculas' },
               ].map((action) => (
                 <motion.button
                   key={action.label}

@@ -1,21 +1,30 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { authApi, User, ApiError } from './api';
+import { authenticateUser } from './mock-data';
+
+// Tipo de usuario para el contexto
+export interface User {
+  id: string;
+  email: string;
+  role: 'ADMIN' | 'TEACHER' | 'STUDENT' | 'PARENT';
+  firstName: string;
+  lastName: string;
+  relatedId?: string;
+}
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  checkAuth: () => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Rutas públicas que no requieren autenticación
+// Rutas publicas que no requieren autenticacion
 const publicPaths = ['/', '/login', '/contacto', '/recuperar'];
 
 // Mapeo de roles a rutas permitidas
@@ -26,74 +35,66 @@ const roleRoutes: Record<string, string[]> = {
   PARENT: ['/parent'],
 };
 
+// Clave para localStorage
+const STORAGE_KEY = 'school_auth_user';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
-  // Verificar autenticación al cargar
-  const checkAuth = useCallback(async () => {
-    try {
-      const response = await authApi.check();
-      if (response.authenticated) {
-        setUser(response.user);
-      } else {
-        setUser(null);
+  // Cargar usuario de localStorage al montar
+  useEffect(() => {
+    const savedUser = localStorage.getItem(STORAGE_KEY);
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch {
+        localStorage.removeItem(STORAGE_KEY);
       }
-    } catch (error) {
-      setUser(null);
-      // Si es 401, intentar refresh
-      if (error instanceof ApiError && error.status === 401) {
-        try {
-          await authApi.refresh();
-          const retryResponse = await authApi.check();
-          if (retryResponse.authenticated) {
-            setUser(retryResponse.user);
-            return;
-          }
-        } catch {
-          // Refresh falló, usuario no autenticado
-        }
-      }
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, []);
 
-  // Login
+  // Login con datos estaticos
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    try {
-      const response = await authApi.login(email, password);
-      setUser(response.user);
 
-      // Redirigir según el rol
-      const role = response.user.role;
-      const defaultRoute = roleRoutes[role]?.[0] || '/';
-      router.push(`${defaultRoute}/dashboard`);
-    } catch (error) {
+    // Simular delay de red
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const mockUser = authenticateUser(email, password);
+
+    if (!mockUser) {
       setIsLoading(false);
-      throw error;
+      throw new Error('Credenciales incorrectas');
     }
+
+    const authUser: User = {
+      id: mockUser.id,
+      email: mockUser.email,
+      role: mockUser.role,
+      firstName: mockUser.firstName,
+      lastName: mockUser.lastName,
+      relatedId: mockUser.relatedId,
+    };
+
+    // Guardar en localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
+    setUser(authUser);
+
+    // Redirigir segun el rol
+    const defaultRoute = roleRoutes[authUser.role]?.[0] || '/';
+    router.push(`${defaultRoute}/dashboard`);
   };
 
   // Logout
-  const logout = async () => {
-    try {
-      await authApi.logout();
-    } catch {
-      // Ignorar errores de logout
-    } finally {
-      setUser(null);
-      router.push('/login');
-    }
+  const logout = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setUser(null);
+    router.push('/login');
   };
-
-  // Verificar autenticación al montar
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
 
   // Proteger rutas
   useEffect(() => {
@@ -103,16 +104,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (path) => pathname === path || pathname.startsWith('/recuperar')
     );
 
-    // Si no está autenticado y la ruta no es pública, redirigir a login
+    // Si no esta autenticado y la ruta no es publica, redirigir a login
     if (!user && !isPublicPath) {
       router.push('/login');
       return;
     }
 
-    // Si está autenticado y está en una ruta pública (login, etc), redirigir al dashboard
+    // Si esta autenticado y esta en una ruta publica (login, etc), redirigir al dashboard
     if (user && (pathname === '/login' || pathname === '/')) {
-      const role = user.role;
-      const defaultRoute = roleRoutes[role]?.[0] || '/';
+      const defaultRoute = roleRoutes[user.role]?.[0] || '/';
       router.push(`${defaultRoute}/dashboard`);
       return;
     }
@@ -130,23 +130,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, isLoading, pathname, router]);
 
-  // Configurar refresh automático del token
-  useEffect(() => {
-    if (!user) return;
-
-    // Refresh cada 10 minutos (antes de que expire el access token de 15 min)
-    const interval = setInterval(async () => {
-      try {
-        await authApi.refresh();
-      } catch {
-        // Si falla el refresh, hacer logout
-        logout();
-      }
-    }, 10 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [user]);
-
   return (
     <AuthContext.Provider
       value={{
@@ -155,7 +138,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
-        checkAuth,
       }}
     >
       {children}

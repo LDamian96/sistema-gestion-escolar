@@ -52,4 +52,9 @@ export class CreateStudentDto {
   @IsString()
   @IsOptional()
   profilePhoto?: string;
+
+  @ApiPropertyOptional({ description: 'ID del aula para matrícula automática' })
+  @IsString()
+  @IsOptional()
+  classroomId?: string;
 }

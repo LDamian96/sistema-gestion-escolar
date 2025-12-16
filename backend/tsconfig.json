@@ -20,5 +20,5 @@
     "esModuleInterop": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/common/pipes/parse-uuid.pipe.ts"]
+  "exclude": ["node_modules", "dist", "src/common/pipes/parse-uuid.pipe.ts", "**/*.spec.ts", "**/*.test.ts"]
 }

@@ -51,7 +51,16 @@
       "Bash(npm test:*)",
       "Bash(echo:*)",
       "Bash(printf:*)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(PORT=4000 node:*)",
+      "Bash(timeout:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlZDhmODc5Zi0zODMyLTQ0YTQtYWVjYS1mYjdjMTFhMGMzMmQiLCJlbWFpbCI6ImFkbWluQHNjaG9vbC5jb20iLCJyb2xlIjoiQURNSU4iLCJzY2hvb2xJZCI6IjQyYjc1OTc4LWVjMTQtNDZlMy04NmI3LTk0ZTQ2YzlhNzI5ZSIsImlhdCI6MTc2NTYwMjg5MywiZXhwIjoxNzY1NjAzNzkzfQ.takqNJScDQr3PNU_G0Ioir0L5hBMEBZlWWxzQWgDR9g\")",
+      "Bash(wmic process where \"ProcessId=14364\" call terminate)",
+      "Bash(git checkout:*)",
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(cmd /c \"cd /d \"\"c:\\Users\\jcdam\\Desktop\\claude-sistema de gestion escolar\\escuela-frontend\\src\"\" && mkdir \"\"app\\(auth)\"\" && mkdir \"\"app\\(auth)\\login\"\" && mkdir \"\"app\\(auth)\\recuperar\"\"\")",
+      "Bash(powershell -Command:*)",
+      "Bash(npm ls:*)"
     ],
     "deny": [],
     "ask": []

@@ -343,7 +343,7 @@ model Course {
   id             String   @id @default(uuid())
   academicYearId String
   subjectId      String
-  teacherId      String
+  teacherId      String?  // Opcional - se puede asignar después
   classroomId    String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -351,7 +351,7 @@ model Course {
   // Relations
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   subject      Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher      Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher      Teacher?     @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   classroom    Classroom    @relation(fields: [classroomId], references: [id], onDelete: Cascade)
   schedules    Schedule[]
   attendances  Attendance[]

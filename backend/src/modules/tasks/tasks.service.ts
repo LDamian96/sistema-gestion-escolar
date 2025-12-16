@@ -47,6 +47,19 @@ export class TasksService {
           include: {
             subject: true,
             teacher: { select: { firstName: true, lastName: true } },
+            classroom: {
+              include: {
+                section: {
+                  include: {
+                    gradeLevel: {
+                      include: {
+                        level: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         _count: {

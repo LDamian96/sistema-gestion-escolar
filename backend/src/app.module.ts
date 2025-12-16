@@ -21,6 +21,7 @@ import { CurriculumModule } from './modules/curriculum/curriculum.module';
 import { GradeLevelsModule } from './modules/grade-levels/grade-levels.module';
 import { LevelsModule } from './modules/levels/levels.module';
 import { SectionsModule } from './modules/sections/sections.module';
+import { ClassroomsModule } from './modules/classrooms/classrooms.module';
 import { SubjectsModule } from './modules/subjects/subjects.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -70,6 +71,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     GradeLevelsModule,
     LevelsModule,
     SectionsModule,
+    ClassroomsModule,
     SubjectsModule,
     UploadsModule,
     AuditModule,
