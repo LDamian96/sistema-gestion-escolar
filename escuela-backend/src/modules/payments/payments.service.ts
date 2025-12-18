@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreatePaymentDto, UpdatePaymentDto, MarkPaidDto, CreatePaymentConceptDto } from './dto';
 import { PaymentStatus } from '@prisma/client';
 import { MercadoPagoConfig, Preference, Payment as MPPayment } from 'mercadopago';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 
 @Injectable()
 export class PaymentsService {
@@ -12,6 +13,7 @@ export class PaymentsService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private notificationEvents: NotificationEventsService,
   ) {
     this.mercadopago = new MercadoPagoConfig({
       accessToken: this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN') || '',
@@ -242,7 +244,7 @@ export class PaymentsService {
       throw new BadRequestException('Este pago ya fue realizado');
     }
 
-    return this.prisma.payment.update({
+    const updatedPayment = await this.prisma.payment.update({
       where: { id },
       data: {
         status: PaymentStatus.PAID,
@@ -262,6 +264,22 @@ export class PaymentsService {
         concept: true,
       },
     });
+
+    // Enviar notificación de pago confirmado
+    await this.notificationEvents.onPaymentConfirmed(
+      {
+        id: updatedPayment.id,
+        amount: updatedPayment.amount,
+        concept: updatedPayment.concept,
+        student: {
+          id: updatedPayment.studentId,
+          user: updatedPayment.student.user,
+        },
+      },
+      payment.schoolId,
+    );
+
+    return updatedPayment;
   }
 
   // ==================== MERCADOPAGO ====================
@@ -331,6 +349,14 @@ export class PaymentsService {
       if (paymentInfo.status === 'approved' && paymentInfo.external_reference) {
         const payment = await this.prisma.payment.findUnique({
           where: { id: paymentInfo.external_reference },
+          include: {
+            student: {
+              include: {
+                user: { select: { firstName: true, lastName: true } },
+              },
+            },
+            concept: true,
+          },
         });
 
         if (payment && payment.status !== PaymentStatus.PAID) {
@@ -347,6 +373,20 @@ export class PaymentsService {
               },
             },
           });
+
+          // Enviar notificación de pago confirmado
+          await this.notificationEvents.onPaymentConfirmed(
+            {
+              id: payment.id,
+              amount: payment.amount,
+              concept: payment.concept,
+              student: {
+                id: payment.studentId,
+                user: payment.student.user,
+              },
+            },
+            payment.schoolId,
+          );
         }
       }
 

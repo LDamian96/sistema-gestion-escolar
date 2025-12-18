@@ -7,10 +7,14 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { CreateExamDto, UpdateExamDto, CreateQuestionDto, SubmitAnswerDto } from './dto';
 import { Prisma } from '@prisma/client';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 
 @Injectable()
 export class ExamsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationEvents: NotificationEventsService,
+  ) {}
 
   async create(dto: CreateExamDto) {
     const startDate = new Date(dto.startDate);
@@ -22,12 +26,18 @@ export class ExamsService {
 
     const course = await this.prisma.course.findUnique({
       where: { id: dto.courseId },
+      include: { gradeSection: { select: { schoolId: true } } },
     });
     if (!course) {
       throw new BadRequestException('El curso no existe');
     }
 
-    return this.prisma.exam.create({
+    const teacher = await this.prisma.teacher.findUnique({
+      where: { id: dto.teacherId },
+      include: { user: { select: { firstName: true, lastName: true } } },
+    });
+
+    const exam = await this.prisma.exam.create({
       data: {
         title: dto.title,
         description: dto.description,
@@ -50,6 +60,23 @@ export class ExamsService {
         },
       },
     });
+
+    // Enviar notificaciones si el examen está publicado
+    if (exam.isPublished && teacher) {
+      await this.notificationEvents.onExamCreated(
+        {
+          id: exam.id,
+          title: exam.title,
+          startDate: exam.startDate,
+          endDate: exam.endDate,
+          course: exam.course,
+          teacher: { user: teacher.user },
+        },
+        course.gradeSection.schoolId,
+      );
+    }
+
+    return exam;
   }
 
   async findAll(courseId?: string, teacherId?: string, isPublished?: boolean) {
@@ -174,7 +201,19 @@ export class ExamsService {
   async publish(id: string) {
     const exam = await this.prisma.exam.findUnique({
       where: { id },
-      include: { _count: { select: { questions: true } } },
+      include: {
+        _count: { select: { questions: true } },
+        course: {
+          select: {
+            id: true,
+            name: true,
+            gradeSection: { select: { schoolId: true } },
+          },
+        },
+        teacher: {
+          select: { user: { select: { firstName: true, lastName: true } } },
+        },
+      },
     });
 
     if (!exam) {
@@ -185,11 +224,26 @@ export class ExamsService {
       throw new BadRequestException('El examen debe tener al menos una pregunta');
     }
 
-    return this.prisma.exam.update({
+    const updatedExam = await this.prisma.exam.update({
       where: { id },
       data: { isPublished: true },
-      select: { id: true, title: true, isPublished: true },
+      select: { id: true, title: true, isPublished: true, startDate: true, endDate: true },
     });
+
+    // Enviar notificaciones
+    await this.notificationEvents.onExamCreated(
+      {
+        id: exam.id,
+        title: exam.title,
+        startDate: exam.startDate,
+        endDate: exam.endDate,
+        course: { id: exam.course.id, name: exam.course.name },
+        teacher: exam.teacher,
+      },
+      exam.course.gradeSection.schoolId,
+    );
+
+    return updatedExam;
   }
 
   // ==================== QUESTIONS ====================
@@ -360,6 +414,14 @@ export class ExamsService {
         exam: {
           include: {
             questions: true,
+            course: {
+              select: { gradeSection: { select: { schoolId: true } } },
+            },
+          },
+        },
+        student: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
           },
         },
         answers: true,
@@ -383,7 +445,7 @@ export class ExamsService {
       }
     }
 
-    return this.prisma.examAttempt.update({
+    const updatedAttempt = await this.prisma.examAttempt.update({
       where: { id: attemptId },
       data: {
         isCompleted: true,
@@ -394,6 +456,27 @@ export class ExamsService {
         exam: { select: { title: true, maxScore: true, showResults: true } },
       },
     });
+
+    // Enviar notificación de examen calificado
+    await this.notificationEvents.onExamGraded(
+      {
+        id: attempt.id,
+        score: totalScore,
+        exam: {
+          id: attempt.exam.id,
+          title: attempt.exam.title,
+          maxScore: attempt.exam.maxScore,
+        },
+        student: {
+          id: attempt.studentId,
+          userId: attempt.student.user.id,
+          user: attempt.student.user,
+        },
+      },
+      attempt.exam.course.gradeSection.schoolId,
+    );
+
+    return updatedAttempt;
   }
 
   async getAttempts(examId: string) {

@@ -1,15 +1,23 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateAttendanceDto, UpdateAttendanceDto, MarkAllAttendanceDto } from './dto';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 
 @Injectable()
 export class AttendanceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationEvents: NotificationEventsService,
+  ) {}
 
   async create(dto: CreateAttendanceDto) {
     // Verificar que el estudiante existe
     const student = await this.prisma.student.findUnique({
       where: { id: dto.studentId },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true } },
+        school: { select: { id: true } },
+      },
     });
     if (!student) {
       throw new NotFoundException('Estudiante no encontrado');
@@ -28,7 +36,13 @@ export class AttendanceService {
       throw new ConflictException('Ya existe un registro de asistencia para este estudiante en esta fecha');
     }
 
-    return this.prisma.attendance.create({
+    // Obtener info del gradeSection
+    const gradeSection = await this.prisma.gradeSection.findUnique({
+      where: { id: dto.gradeSectionId },
+      select: { grade: true, section: true },
+    });
+
+    const attendance = await this.prisma.attendance.create({
       data: {
         date: new Date(dto.date),
         status: dto.status,
@@ -55,6 +69,29 @@ export class AttendanceService {
         },
       },
     });
+
+    // Enviar notificación de asistencia
+    if (gradeSection) {
+      await this.notificationEvents.onAttendanceMarked(
+        {
+          id: attendance.id,
+          status: attendance.status,
+          date: attendance.date,
+          student: {
+            id: student.id,
+            userId: student.user.id,
+            user: student.user,
+          },
+          gradeSection: {
+            grade: gradeSection.grade,
+            section: gradeSection.section,
+          },
+        },
+        student.school.id,
+      );
+    }
+
+    return attendance;
   }
 
   async findAll(gradeSectionId?: string, date?: string, studentId?: string) {
@@ -195,8 +232,14 @@ export class AttendanceService {
   async markAll(dto: MarkAllAttendanceDto) {
     const date = new Date(dto.date);
 
+    // Obtener info del gradeSection
+    const gradeSection = await this.prisma.gradeSection.findUnique({
+      where: { id: dto.gradeSectionId },
+      select: { grade: true, section: true, schoolId: true },
+    });
+
     // Usar una transacción para garantizar consistencia
-    return this.prisma.$transaction(async (tx) => {
+    const transactionResult = await this.prisma.$transaction(async (tx) => {
       const results = [];
 
       for (const record of dto.records) {
@@ -222,13 +265,13 @@ export class AttendanceService {
               student: {
                 include: {
                   user: {
-                    select: { firstName: true, lastName: true },
+                    select: { id: true, firstName: true, lastName: true },
                   },
                 },
               },
             },
           });
-          results.push(updated);
+          results.push({ ...updated, isNew: false });
         } else {
           // Crear nuevo
           const created = await tx.attendance.create({
@@ -244,21 +287,46 @@ export class AttendanceService {
               student: {
                 include: {
                   user: {
-                    select: { firstName: true, lastName: true },
+                    select: { id: true, firstName: true, lastName: true },
                   },
                 },
               },
             },
           });
-          results.push(created);
+          results.push({ ...created, isNew: true });
         }
       }
 
-      return {
-        message: `Se registraron ${results.length} asistencias exitosamente`,
-        records: results,
-      };
+      return results;
     });
+
+    // Enviar notificaciones fuera de la transacción
+    if (gradeSection) {
+      for (const attendance of transactionResult) {
+        await this.notificationEvents.onAttendanceMarked(
+          {
+            id: attendance.id,
+            status: attendance.status,
+            date: attendance.date,
+            student: {
+              id: attendance.studentId,
+              userId: attendance.student.user.id,
+              user: attendance.student.user,
+            },
+            gradeSection: {
+              grade: gradeSection.grade,
+              section: gradeSection.section,
+            },
+          },
+          gradeSection.schoolId,
+        );
+      }
+    }
+
+    return {
+      message: `Se registraron ${transactionResult.length} asistencias exitosamente`,
+      records: transactionResult,
+    };
   }
 
   async getSummary(studentId: string, startDate?: string, endDate?: string) {

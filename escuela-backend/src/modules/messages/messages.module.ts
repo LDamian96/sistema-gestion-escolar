@@ -7,11 +7,13 @@ import { MessagesGateway } from './messages.gateway';
 import { PrismaModule } from '../../database/prisma.module';
 import { RedisModule } from '../../database/redis.module';
 import { WsJwtGuard } from '../../common/guards/ws-auth.guard';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     PrismaModule,
     RedisModule,
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

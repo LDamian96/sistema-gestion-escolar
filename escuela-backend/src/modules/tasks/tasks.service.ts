@@ -7,15 +7,20 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { CreateTaskDto, UpdateTaskDto, SubmitTaskDto, GradeSubmissionDto } from './dto';
 import { SubmissionStatus } from '@prisma/client';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationEvents: NotificationEventsService,
+  ) {}
 
   async create(dto: CreateTaskDto) {
     // Verificar curso y profesor
     const course = await this.prisma.course.findUnique({
       where: { id: dto.courseId },
+      include: { gradeSection: { select: { schoolId: true } } },
     });
     if (!course) {
       throw new BadRequestException('El curso no existe');
@@ -23,12 +28,13 @@ export class TasksService {
 
     const teacher = await this.prisma.teacher.findUnique({
       where: { id: dto.teacherId },
+      include: { user: { select: { firstName: true, lastName: true } } },
     });
     if (!teacher) {
       throw new BadRequestException('El profesor no existe');
     }
 
-    return this.prisma.task.create({
+    const task = await this.prisma.task.create({
       data: {
         title: dto.title,
         description: dto.description,
@@ -52,6 +58,22 @@ export class TasksService {
         },
       },
     });
+
+    // Enviar notificaciones si la tarea está publicada
+    if (task.isPublished) {
+      await this.notificationEvents.onTaskCreated(
+        {
+          id: task.id,
+          title: task.title,
+          dueDate: task.dueDate,
+          course: task.course,
+          teacher: { user: teacher.user },
+        },
+        course.gradeSection.schoolId,
+      );
+    }
+
+    return task;
   }
 
   async findAll(
@@ -161,17 +183,45 @@ export class TasksService {
   }
 
   async publish(id: string) {
-    const task = await this.prisma.task.findUnique({ where: { id } });
+    const task = await this.prisma.task.findUnique({
+      where: { id },
+      include: {
+        course: {
+          select: {
+            id: true,
+            name: true,
+            gradeSection: { select: { schoolId: true } },
+          },
+        },
+        teacher: {
+          select: { user: { select: { firstName: true, lastName: true } } },
+        },
+      },
+    });
 
     if (!task) {
       throw new NotFoundException('Tarea no encontrada');
     }
 
-    return this.prisma.task.update({
+    const updatedTask = await this.prisma.task.update({
       where: { id },
       data: { isPublished: true },
-      select: { id: true, title: true, isPublished: true },
+      select: { id: true, title: true, isPublished: true, dueDate: true },
     });
+
+    // Enviar notificaciones
+    await this.notificationEvents.onTaskCreated(
+      {
+        id: task.id,
+        title: task.title,
+        dueDate: task.dueDate,
+        course: { id: task.course.id, name: task.course.name },
+        teacher: task.teacher,
+      },
+      task.course.gradeSection.schoolId,
+    );
+
+    return updatedTask;
   }
 
   // ==================== SUBMISSIONS ====================
@@ -265,7 +315,20 @@ export class TasksService {
   async gradeSubmission(submissionId: string, dto: GradeSubmissionDto) {
     const submission = await this.prisma.taskSubmission.findUnique({
       where: { id: submissionId },
-      include: { task: true },
+      include: {
+        task: {
+          include: {
+            course: {
+              select: { gradeSection: { select: { schoolId: true } } },
+            },
+          },
+        },
+        student: {
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+        },
+      },
     });
 
     if (!submission) {
@@ -278,7 +341,7 @@ export class TasksService {
       );
     }
 
-    return this.prisma.taskSubmission.update({
+    const updatedSubmission = await this.prisma.taskSubmission.update({
       where: { id: submissionId },
       data: {
         score: dto.score,
@@ -296,6 +359,27 @@ export class TasksService {
         task: { select: { title: true, maxScore: true } },
       },
     });
+
+    // Enviar notificación de tarea calificada
+    await this.notificationEvents.onTaskGraded(
+      {
+        id: submission.id,
+        score: dto.score,
+        task: {
+          id: submission.task.id,
+          title: submission.task.title,
+          maxScore: submission.task.maxScore,
+        },
+        student: {
+          id: submission.studentId,
+          userId: submission.student.user.id,
+          user: submission.student.user,
+        },
+      },
+      submission.task.course.gradeSection.schoolId,
+    );
+
+    return updatedSubmission;
   }
 
   async getStudentSubmission(taskId: string, studentId: string) {

@@ -11,10 +11,14 @@ import {
   QueryMessagesDto,
 } from './dto';
 import { Prisma, ParticipantRole } from '@prisma/client';
+import { NotificationEventsService } from '../notifications/notification-events.service';
 
 @Injectable()
 export class MessagesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationEvents: NotificationEventsService,
+  ) {}
 
   async createConversation(dto: CreateConversationDto, creatorId: string, creatorName: string, creatorRole: ParticipantRole) {
     const conversation = await this.prisma.conversation.create({
@@ -196,6 +200,28 @@ export class MessagesService {
   }
 
   async sendMessage(dto: CreateMessageDto, senderId: string) {
+    // Obtener la conversación con participantes y schoolId
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: dto.conversationId },
+      include: {
+        participants: {
+          include: {
+            teacher: {
+              include: {
+                user: { select: { id: true } },
+                school: { select: { id: true } },
+              },
+            },
+            parent: {
+              include: {
+                user: { select: { id: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
     const message = await this.prisma.message.create({
       data: {
         content: dto.content,
@@ -227,6 +253,33 @@ export class MessagesService {
         lastMessageSenderId: senderId,
       },
     });
+
+    // Enviar notificación de nuevo mensaje
+    if (conversation) {
+      // Obtener schoolId del primer profesor en la conversación
+      const teacherParticipant = conversation.participants.find(p => p.teacher);
+      const schoolId = teacherParticipant?.teacher?.school?.id;
+
+      if (schoolId) {
+        await this.notificationEvents.onNewMessage(
+          {
+            id: message.id,
+            content: dto.content,
+            senderName: dto.senderName,
+            conversation: {
+              id: conversation.id,
+              studentName: conversation.studentName || 'Estudiante',
+              participants: conversation.participants.map(p => ({
+                teacherId: p.teacherId || undefined,
+                parentId: p.parentId || undefined,
+              })),
+            },
+          },
+          senderId,
+          schoolId,
+        );
+      }
+    }
 
     return message;
   }
