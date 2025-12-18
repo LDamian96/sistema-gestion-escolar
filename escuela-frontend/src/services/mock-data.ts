@@ -393,7 +393,7 @@ export interface Task {
   courseId: string
   courseName: string
   gradeSection: string
-  level: 'Primaria' | 'Secundaria'
+  level: 'Inicial' | 'Primaria' | 'Secundaria'
   teacherId: string
   teacherName: string
   dueDate: string
@@ -432,7 +432,7 @@ export interface Exam {
   courseId: string
   courseName: string
   gradeSection: string
-  level: 'Primaria' | 'Secundaria'
+  level: 'Inicial' | 'Primaria' | 'Secundaria'
   teacherId: string
   teacherName: string
   examDate: string
@@ -954,7 +954,7 @@ export const tasksService = {
     await delay(200)
     return mockTasks.filter(t => t.courseId === courseId)
   },
-  async getByLevel(level: 'Primaria' | 'Secundaria'): Promise<Task[]> {
+  async getByLevel(level: 'Inicial' | 'Primaria' | 'Secundaria'): Promise<Task[]> {
     await delay(200)
     return mockTasks.filter(t => t.level === level)
   },
@@ -997,7 +997,7 @@ export const examsService = {
     await delay(200)
     return mockExams.filter(e => e.courseId === courseId)
   },
-  async getByLevel(level: 'Primaria' | 'Secundaria'): Promise<Exam[]> {
+  async getByLevel(level: 'Inicial' | 'Primaria' | 'Secundaria'): Promise<Exam[]> {
     await delay(200)
     return mockExams.filter(e => e.level === level)
   },
@@ -1162,7 +1162,7 @@ export interface CurriculumTopic {
   courseId: string
   courseName: string
   gradeSection: string
-  level: 'Primaria' | 'Secundaria'
+  level: 'Inicial' | 'Primaria' | 'Secundaria'
   unit: number // Unidad (1, 2, 3, etc.)
   title: string
   description: string
@@ -1219,7 +1219,7 @@ export interface MonthlyTopic {
   courseId: string
   courseName: string
   gradeSection: string
-  level: 'Primaria' | 'Secundaria'
+  level: 'Inicial' | 'Primaria' | 'Secundaria'
   date: string // Fecha de la clase
   month: number
   year: number
@@ -1269,7 +1269,7 @@ export const curriculumService = {
     await delay(200)
     return mockCurriculumTopics.filter(ct => ct.gradeSection === gradeSection)
   },
-  async getByLevel(level: 'Primaria' | 'Secundaria'): Promise<CurriculumTopic[]> {
+  async getByLevel(level: 'Inicial' | 'Primaria' | 'Secundaria'): Promise<CurriculumTopic[]> {
     await delay(200)
     return mockCurriculumTopics.filter(ct => ct.level === level)
   },

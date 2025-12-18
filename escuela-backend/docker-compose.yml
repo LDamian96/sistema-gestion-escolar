@@ -1,0 +1,27 @@
+version: '3.1'
+
+services:
+  # PostgreSQL - Base de datos principal
+  postgres:
+    image: postgres:latest
+    container_name: escuela_postgres
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: escuela_db
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+
+  # Redis 7 - Cache y sesiones
+  redis:
+    image: redis:7-alpine
+    container_name: escuela_redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data

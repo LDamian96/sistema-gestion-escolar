@@ -78,8 +78,8 @@ export default function TeacherExamenesPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [gradeSections, setGradeSections] = useState<GradeSection[]>([])
   const [students, setStudents] = useState<Student[]>([])
-  const [selectedLevel, setSelectedLevel] = useState<'Primaria' | 'Secundaria' | ''>('')
-  const [filterLevel, setFilterLevel] = useState<'all' | 'Primaria' | 'Secundaria'>('all')
+  const [selectedLevel, setSelectedLevel] = useState<'Inicial' | 'Primaria' | 'Secundaria' | ''>('')
+  const [filterLevel, setFilterLevel] = useState<'all' | 'Inicial' | 'Primaria' | 'Secundaria'>('all')
   const [filterGradeSection, setFilterGradeSection] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'scheduled' | 'graded'>('all')
   const [loading, setLoading] = useState(true)
@@ -268,7 +268,7 @@ export default function TeacherExamenesPage() {
     const examCourse = courses.find(c => c.id === exam.courseId)
     if (examCourse) {
       const gs = gradeSections.find(g => `${g.grade} ${g.section}` === examCourse.gradeSection)
-      setSelectedLevel(gs?.level as 'Primaria' | 'Secundaria' || '')
+      setSelectedLevel(gs?.level as 'Inicial' | 'Primaria' | 'Secundaria' || '')
     }
     setFormData({
       title: exam.title,
@@ -568,7 +568,7 @@ export default function TeacherExamenesPage() {
                     <span className="text-sm font-medium">Nivel:</span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {(['all', 'Primaria', 'Secundaria'] as const).map((level) => (
+                    {(['all', 'Inicial', 'Primaria', 'Secundaria'] as const).map((level) => (
                       <Button
                         key={level}
                         variant={filterLevel === level ? 'default' : 'outline'}
@@ -846,12 +846,13 @@ export default function TeacherExamenesPage() {
                     id="level"
                     value={selectedLevel}
                     onChange={(e) => {
-                      setSelectedLevel(e.target.value as 'Primaria' | 'Secundaria' | '')
+                      setSelectedLevel(e.target.value as 'Inicial' | 'Primaria' | 'Secundaria' | '')
                       setFormData({ ...formData, courseId: '' })
                     }}
                     className="w-full px-3 py-2 border rounded-md bg-background"
                   >
                     <option value="">Todos los niveles</option>
+                    <option value="Inicial">Inicial</option>
                     <option value="Primaria">Primaria</option>
                     <option value="Secundaria">Secundaria</option>
                   </select>
@@ -984,12 +985,13 @@ export default function TeacherExamenesPage() {
                     id="edit-level"
                     value={selectedLevel}
                     onChange={(e) => {
-                      setSelectedLevel(e.target.value as 'Primaria' | 'Secundaria' | '')
+                      setSelectedLevel(e.target.value as 'Inicial' | 'Primaria' | 'Secundaria' | '')
                       setFormData({ ...formData, courseId: '' })
                     }}
                     className="w-full px-3 py-2 border rounded-md bg-background"
                   >
                     <option value="">Todos los niveles</option>
+                    <option value="Inicial">Inicial</option>
                     <option value="Primaria">Primaria</option>
                     <option value="Secundaria">Secundaria</option>
                   </select>

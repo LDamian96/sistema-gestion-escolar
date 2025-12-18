@@ -94,7 +94,7 @@ export default function CursosPage() {
 
   // Estado de filtros
   const [searchTerm, setSearchTerm] = useState('')
-  const [levelFilter, setLevelFilter] = useState<'all' | 'Primaria' | 'Secundaria'>('all')
+  const [levelFilter, setLevelFilter] = useState<'all' | 'Inicial' | 'Primaria' | 'Secundaria'>('all')
   const [gradeFilter, setGradeFilter] = useState<string>('all')
 
   // Estado del modal
@@ -530,6 +530,7 @@ export default function CursosPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los niveles</SelectItem>
+                <SelectItem value="Inicial">Inicial</SelectItem>
                 <SelectItem value="Primaria">Primaria</SelectItem>
                 <SelectItem value="Secundaria">Secundaria</SelectItem>
               </SelectContent>

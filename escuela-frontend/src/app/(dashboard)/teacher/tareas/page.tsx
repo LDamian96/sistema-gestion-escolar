@@ -77,8 +77,8 @@ export default function TeacherTareasPage() {
   const [courses, setCourses] = useState<Course[]>([])
   const [gradeSections, setGradeSections] = useState<GradeSection[]>([])
   const [students, setStudents] = useState<Student[]>([])
-  const [selectedLevel, setSelectedLevel] = useState<'Primaria' | 'Secundaria' | ''>('')
-  const [filterLevel, setFilterLevel] = useState<'all' | 'Primaria' | 'Secundaria'>('all')
+  const [selectedLevel, setSelectedLevel] = useState<'Inicial' | 'Primaria' | 'Secundaria' | ''>('')
+  const [filterLevel, setFilterLevel] = useState<'all' | 'Inicial' | 'Primaria' | 'Secundaria'>('all')
   const [filterGradeSection, setFilterGradeSection] = useState<string>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'closed' | 'not_submitted'>('all')
   const [loading, setLoading] = useState(true)
@@ -251,7 +251,7 @@ export default function TeacherTareasPage() {
     const taskCourse = courses.find(c => c.id === task.courseId)
     if (taskCourse) {
       const gs = gradeSections.find(g => `${g.grade} ${g.section}` === taskCourse.gradeSection)
-      setSelectedLevel(gs?.level as 'Primaria' | 'Secundaria' || '')
+      setSelectedLevel(gs?.level as 'Inicial' | 'Primaria' | 'Secundaria' || '')
     }
     setFormData({
       title: task.title,
@@ -568,7 +568,7 @@ export default function TeacherTareasPage() {
                     <span className="text-sm font-medium">Nivel:</span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {(['all', 'Primaria', 'Secundaria'] as const).map((level) => (
+                    {(['all', 'Inicial', 'Primaria', 'Secundaria'] as const).map((level) => (
                       <Button
                         key={level}
                         variant={filterLevel === level ? 'default' : 'outline'}
@@ -856,12 +856,13 @@ export default function TeacherTareasPage() {
                     id="level"
                     value={selectedLevel}
                     onChange={(e) => {
-                      setSelectedLevel(e.target.value as 'Primaria' | 'Secundaria' | '')
+                      setSelectedLevel(e.target.value as 'Inicial' | 'Primaria' | 'Secundaria' | '')
                       setFormData({ ...formData, courseId: '' })
                     }}
                     className="w-full px-3 py-2 border rounded-md bg-background"
                   >
                     <option value="">Todos los niveles</option>
+                    <option value="Inicial">Inicial</option>
                     <option value="Primaria">Primaria</option>
                     <option value="Secundaria">Secundaria</option>
                   </select>
@@ -961,12 +962,13 @@ export default function TeacherTareasPage() {
                     id="edit-level"
                     value={selectedLevel}
                     onChange={(e) => {
-                      setSelectedLevel(e.target.value as 'Primaria' | 'Secundaria' | '')
+                      setSelectedLevel(e.target.value as 'Inicial' | 'Primaria' | 'Secundaria' | '')
                       setFormData({ ...formData, courseId: '' })
                     }}
                     className="w-full px-3 py-2 border rounded-md bg-background"
                   >
                     <option value="">Todos los niveles</option>
+                    <option value="Inicial">Inicial</option>
                     <option value="Primaria">Primaria</option>
                     <option value="Secundaria">Secundaria</option>
                   </select>
